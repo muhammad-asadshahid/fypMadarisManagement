@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "fypmadrassa",
-    "slug": "fypmadrassa",
+    "name": "Madaris Management System",
+    "slug": "mms",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fypmadrassa",
+    "scheme": "mms",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -25,10 +25,17 @@
     },
     "plugins": [
       "expo-router",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow MMS to access photos for student profiles."
+        }
+      ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#1B5E20",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -37,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1fefaab2-2c2d-49d7-ab04-026a4d656991"
+      }
+    },
+    "owner": "asad123678"
   }
 }
