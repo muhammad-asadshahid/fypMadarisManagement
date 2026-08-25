@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 
 const url =
-  Constants.expoConfig?.extra?.SUPABASE_URL ||
+  Constants.expoConfig?.extra?.SUPABASEgit init_URL ||
   process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key =
   Constants.expoConfig?.extra?.SUPABASE_ANON_KEY ||

@@ -1,4 +1,3 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import {
+  Appbar,
   Button,
   Card,
   HelperText,
