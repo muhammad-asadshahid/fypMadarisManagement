@@ -4,55 +4,67 @@ import { StyleSheet, View } from "react-native";
 import { ActivityIndicator, Card, Text } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
+import { reportsService } from "@/modules/reports/service";
+import type { ReportSummary } from "@/types";
+
+const EMPTY: ReportSummary = {
+  totalStudents: 0,
+  totalTeachers: 0,
+  totalClasses: 0,
+  presentToday: 0,
+  absentToday: 0,
+  totalActiveHostelStudents: 0,
+  totalDonations: 0,
+  totalFeesCollected: 0,
+  totalSalariesPaid: 0,
+};
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [counts, setCounts] = useState({ students: 0, teachers: 0 });
+  const [summary, setSummary] = useState<ReportSummary>(EMPTY);
 
   useEffect(() => {
-    if (!SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase;
-
-    const loadCounts = async () => {
+    const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [studentsRes, teachersRes] = await Promise.all([
-          client.from("students").select("id", { count: "exact", head: true }),
-          client.from("teachers").select("id", { count: "exact", head: true }),
-        ]);
-
-        if (studentsRes.error || teachersRes.error) {
-          throw new Error(
-            studentsRes.error?.message ||
-              teachersRes.error?.message ||
-              "Unable to load reports",
-          );
-        }
-
-        setCounts({
-          students: studentsRes.count ?? 0,
-          teachers: teachersRes.count ?? 0,
-        });
+        setSummary(await reportsService.getSummary());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
-
-    loadCounts();
+    load();
   }, []);
+
+  const cards = [
+    { label: t("reports.totalStudents"), value: summary.totalStudents },
+    { label: t("reports.totalTeachers"), value: summary.totalTeachers },
+    { label: t("reports.totalClasses"), value: summary.totalClasses },
+    { label: t("reports.presentToday"), value: summary.presentToday },
+    { label: t("reports.absentToday"), value: summary.absentToday },
+    { label: t("reports.hostelStudents"), value: summary.totalActiveHostelStudents },
+    {
+      label: t("reports.totalDonations"),
+      value: summary.totalDonations.toLocaleString(),
+    },
+    {
+      label: t("reports.totalFees"),
+      value: summary.totalFeesCollected.toLocaleString(),
+    },
+    {
+      label: t("reports.totalSalaries"),
+      value: summary.totalSalariesPaid.toLocaleString(),
+    },
+  ];
 
   return (
     <ScreenWrapper title={t("nav.reports")}>
       <View style={styles.container}>
-        {!SUPABASE_CONFIGURED ? (
-          <Text>{t("common.error")}: Supabase is not configured.</Text>
-        ) : loading ? (
+        {loading ? (
           <ActivityIndicator />
         ) : error ? (
           <Text>
@@ -60,18 +72,14 @@ export default function ReportsScreen() {
           </Text>
         ) : (
           <View style={styles.cards}>
-            <Card style={styles.card} mode="elevated">
-              <Card.Content>
-                <Text variant="titleLarge">{counts.students}</Text>
-                <Text>{t("reports.totalStudents")}</Text>
-              </Card.Content>
-            </Card>
-            <Card style={styles.card} mode="elevated">
-              <Card.Content>
-                <Text variant="titleLarge">{counts.teachers}</Text>
-                <Text>{t("reports.totalTeachers")}</Text>
-              </Card.Content>
-            </Card>
+            {cards.map((c, i) => (
+              <Card key={i} style={styles.card} mode="elevated">
+                <Card.Content>
+                  <Text variant="titleLarge">{c.value}</Text>
+                  <Text>{c.label}</Text>
+                </Card.Content>
+              </Card>
+            ))}
           </View>
         )}
       </View>

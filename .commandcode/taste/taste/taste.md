@@ -1,0 +1,14 @@
+# Taste
+- Develops in an Expo (React Native, TypeScript) project using react-native-paper for UI. The backend/auth stack is being migrated from Supabase to Firebase Firestore + Firebase Auth (per changed project requirements), keeping existing service interfaces/types intact. Confidence: 0.8
+- Tests the app on the web platform via `npx expo start` and reports issues by pasting the full web console output/stack traces. Confidence: 0.7
+- When pasting a runtime error, expects a root-cause diagnosis and a working fix (including installing missing dependencies / editing config) rather than an explanation-only response. Confidence: 0.6
+- Works on Windows (drive-letter paths, cmd/PowerShell tooling). Confidence: 0.7
+- Prefers guidance delivered step-by-step, one step at a time, rather than a full plan at once. Executes each step and pastes back the terminal output before requesting the next step. Confidence: 0.9
+- Asks "why" when a recommendation seems to contradict their stated goal (e.g. selecting "web app" while building a mobile app), and appreciates the reasoning/justification for technical or tooling decisions before proceeding. Confidence: 0.4
+- Uses relational/SQL vocabulary (calls Firestore collections "tables" and asks how to "see the table") and appreciates being walked through the Firebase console to view data. Guidance about the data model should explain Firestore's collections/documents terms plainly. Confidence: 0.4
+- When given a list of functional requirements, expects the agent to independently derive and implement the corresponding database schema/data model (collections, types, services, seed) without asking clarifying questions first. Confidence: 0.7
+- Wants the agent to explicitly call out any manual/external steps remaining for them (e.g. Firebase console setup, enabling collections, adjusting Firestore security rules) so they can do them — "if there is any work I have to do, I can do." Confidence: 0.7
+- Prefers DB-related work be completed "asap" (prioritizes speed of completing the connection/data layer). Confidence: 0.4
+- Prefers to defer out-of-scope/low-priority features to a later phase (e.g. leave a form field until admin-side management is built later) rather than implement them in the current sprint. Keeps each work session focused on a single priority feature. Confidence: 0.4
+- When a feature is finished, wants a short direct confirmation of completion ("just tell me") rather than a detailed walkthrough/report of everything done. Confidence: 0.4
+- Values keeping related database collections' (e.g. registrations vs students) field schemas identical/consistent so records can be cleanly moved between tables and are "easy to manage" — explicitly asks to align/merge schemas across tables before adding features. Confidence: 0.6

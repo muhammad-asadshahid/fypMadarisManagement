@@ -28,6 +28,7 @@
     "signingIn": "Signing in...",
     "invalidCredentials": "Invalid email or password",
     "welcomeBack": "Welcome back",
+    "register": "Register",
     "demoAccounts": "Demo Accounts",
     "adminDemo": "Admin: admin@mms.com / admin123",
     "teacherDemo": "Teacher: teacher@mms.com / teacher123",
@@ -35,6 +36,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "approvals": "Approvals",
     "students": "Students",
     "teachers": "Teachers",
     "attendance": "Attendance",
@@ -91,6 +93,31 @@
     "deleted": "Student deleted successfully",
     "hostelYes": "Hostel",
     "hostelNo": "Day Scholar"
+  },
+  "registration": {
+    "title": "Student Registration",
+    "subtitle": "Fill the form. Your account activates after admin approval.",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "fatherName": "Father's Name",
+    "bFormCnic": "B-Form / CNIC",
+    "guardianMobile": "Guardian Mobile No",
+    "guardianEmail": "Guardian Email",
+    "pin": "PIN (4 digits)",
+    "confirmPin": "Confirm PIN",
+    "address": "Address",
+    "city": "City",
+    "programType": "Enrollment Program",
+    "uploadPicture": "Upload Picture",
+    "submit": "Submit Registration",
+    "submitted": "Registration submitted! You can log in after admin approval.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Student approved and admitted",
+    "rejected": "Registration rejected",
+    "pendingTitle": "Pending Approvals",
+    "empty": "No pending registrations",
+    "submittedAt": "Submitted"
   },
   "hostel": {
     "rooms": "Hostel Rooms",
@@ -177,11 +204,27 @@
     "contactMin": "Contact number must be at least 10 digits",
     "classRequired": "Please select a class",
     "emailInvalid": "Enter a valid email address",
-    "passwordMin": "Password must be at least 6 characters"
+    "passwordMin": "Password must be at least 6 characters",
+    "bFormMin": "B-Form/CNIC must be at least 13 digits",
+    "cityMin": "City must be at least 2 characters",
+    "pin4": "PIN must be exactly 4 digits",
+    "pinMismatch": "PINs do not match"
   },
   "roles": {
     "admin": "Administrator",
     "teacher": "Teacher",
     "parent": "Parent"
+  },
+  "reports": {
+    "title": "Reports",
+    "totalStudents": "Total Students",
+    "totalTeachers": "Total Teachers",
+    "totalClasses": "Total Classes",
+    "presentToday": "Present Today",
+    "absentToday": "Absent Today",
+    "hostelStudents": "Hostel Students",
+    "totalDonations": "Total Donations",
+    "totalFees": "Fees Collected",
+    "totalSalaries": "Salaries Paid"
   }
 }

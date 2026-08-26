@@ -1,4 +1,13 @@
-import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
+import {
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    setDoc,
+    updateDoc,
+} from "firebase/firestore";
+import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type { Teacher, TeacherFormData } from "@/types";
 
 const MOCK_TEACHERS: Teacher[] = [
@@ -14,37 +23,6 @@ const MOCK_TEACHERS: Teacher[] = [
 
 let teachersDb = [...MOCK_TEACHERS];
 
-function mapTeacherFromDb(record: any): Teacher {
-  return {
-    id: String(record.id),
-    name: String(record.name),
-    subjects: Array.isArray(record.subjects)
-      ? record.subjects.map(String)
-      : typeof record.subjects === "string"
-        ? [String(record.subjects)]
-        : [],
-    contactNumber: String(record.contact_number ?? record.contactNumber ?? ""),
-    salary: Number(record.salary ?? 0),
-    classIds: Array.isArray(record.class_ids)
-      ? record.class_ids.map(String)
-      : Array.isArray(record.classIds)
-        ? record.classIds.map(String)
-        : typeof record.class_ids === "string"
-          ? [String(record.class_ids)]
-          : [],
-  };
-}
-
-function mapTeacherToDb(data: TeacherFormData) {
-  return {
-    name: data.name,
-    subjects: data.subjects ?? [],
-    class_ids: data.classIds ?? [],
-    contact_number: data.contactNumber,
-    salary: data.salary,
-  };
-}
-
 function genId() {
   return `tch-${Date.now()}`;
 }
@@ -58,74 +36,67 @@ export interface TeacherService {
   delete(id: string): Promise<void>;
 }
 
-class SupabaseTeacherService implements TeacherService {
+class FirestoreTeacherService implements TeacherService {
+  private teachersCol() {
+    return collection(db!, "teachers");
+  }
+
   async getAll(): Promise<Teacher[]> {
-    if (!supabase) return [];
-    const { data, error } = await supabase.from("teachers").select("*");
-    if (error) throw error;
-    return (data ?? []).map(mapTeacherFromDb);
+    const snapshot = await getDocs(this.teachersCol());
+    return snapshot.docs.map((d) => d.data() as Teacher);
   }
 
   async getById(id: string): Promise<Teacher | null> {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-      .from("teachers")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) {
-      if (error.code === "PGRST116") {
-        return null;
-      }
-      throw error;
-    }
-    return data ? mapTeacherFromDb(data) : null;
+    const snap = await getDoc(doc(db!, "teachers", id));
+    if (!snap.exists()) return null;
+    return snap.data() as Teacher;
   }
 
   async search(query: string): Promise<Teacher[]> {
-    const q = query.trim();
+    const q = query.trim().toLowerCase();
     if (!q) return this.getAll();
-    if (!supabase) return [];
-
-    const { data, error } = await supabase
-      .from("teachers")
-      .select("*")
-      .or(`name.ilike.%${q}%,contact_number.ilike.%${q}%`)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return (data ?? []).map(mapTeacherFromDb);
+    const all = await this.getAll();
+    return all.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.contactNumber.toLowerCase().includes(q) ||
+        t.subjects.some((subject) => subject.toLowerCase().includes(q)),
+    );
   }
 
   async create(data: TeacherFormData): Promise<Teacher> {
-    if (!supabase) throw new Error("Supabase is not available");
-    const { data: record, error } = await supabase
-      .from("teachers")
-      .insert(mapTeacherToDb(data))
-      .select()
-      .single();
-    if (error) throw error;
-    if (!record) throw new Error("Teacher record not returned");
-    return mapTeacherFromDb(record);
+    const teacher: Teacher = {
+      id: genId(),
+      name: data.name,
+      contactNumber: data.contactNumber ?? "",
+      salary: data.salary ?? 0,
+      subjects: data.subjects ?? [],
+      classIds: data.classIds ?? [],
+    };
+    await setDoc(doc(db!, "teachers", teacher.id), teacher);
+    return teacher;
   }
 
   async update(id: string, data: TeacherFormData): Promise<Teacher> {
-    if (!supabase) throw new Error("Supabase is not available");
-    const { data: record, error } = await supabase
-      .from("teachers")
-      .update(mapTeacherToDb(data))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    if (!record) throw new Error("Teacher record not returned");
-    return mapTeacherFromDb(record);
+    const ref = doc(db!, "teachers", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("Not found");
+    const existing = snap.data() as Teacher;
+    const updated: Teacher = {
+      ...existing,
+      ...data,
+      contactNumber: data.contactNumber ?? existing.contactNumber,
+      salary: data.salary ?? existing.salary,
+      subjects: data.subjects ?? existing.subjects,
+      classIds: data.classIds ?? existing.classIds,
+      id,
+    };
+    await updateDoc(ref, { ...updated });
+    return updated;
   }
 
   async delete(id: string): Promise<void> {
-    if (!supabase) throw new Error("Supabase is not available");
-    const { error } = await supabase.from("teachers").delete().eq("id", id);
-    if (error) throw error;
+    await deleteDoc(doc(db!, "teachers", id));
   }
 }
 
@@ -183,6 +154,6 @@ class MockTeacherService implements TeacherService {
 }
 
 export const teacherService: TeacherService =
-  SUPABASE_CONFIGURED && supabase
-    ? new SupabaseTeacherService()
+  FIREBASE_CONFIGURED && db
+    ? new FirestoreTeacherService()
     : new MockTeacherService();

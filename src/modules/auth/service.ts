@@ -1,71 +1,97 @@
 import { DEMO_USERS } from "@/constants/mock-data";
 import { clearAuthUser, getAuthUser, saveAuthUser } from "@/lib/storage";
-import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
+import { studentService } from "@/modules/students/service";
 import type { User } from "@/types";
 
 export interface AuthService {
   login(email: string, password: string): Promise<User>;
+  signUp(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
 }
 
-function normalizeParentIds(value: unknown): string[] | undefined {
-  if (!value) return undefined;
-  if (Array.isArray(value)) return value.map((item) => String(item));
-  if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+async function findUserInFirestore(
+  email: string,
+  password: string,
+): Promise<User | null> {
+  if (!db) return null;
+  const q = query(
+    collection(db, "users"),
+    where("email", "==", email.trim().toLowerCase()),
+  );
+  const snapshot = await getDocs(q);
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (data.password === password) {
+      const user: User = {
+        id: String(data.id ?? docSnap.id),
+        email: String(data.email),
+        fullName: String(data.fullName ?? ""),
+        role: String(data.role ?? "parent") as User["role"],
+        teacherId: data.teacherId ?? undefined,
+        parentStudentIds: Array.isArray(data.parentStudentIds)
+          ? data.parentStudentIds.map(String)
+          : undefined,
+      };
+      await saveAuthUser(user);
+      return user;
+    }
   }
-  return undefined;
+  return null;
 }
 
-function buildUserFromSupabase(user: any): User {
-  const metadata = user?.user_metadata ?? {};
-  return {
-    id: String(user.id),
-    email: String(user.email ?? ""),
-    fullName:
-      String(
-        metadata.full_name || metadata.fullName || user.email || "",
-      ).trim() || String(user.email ?? ""),
-    role: String(metadata.role || "parent") as User["role"],
-    teacherId:
-      metadata.teacher_id ||
-      metadata.teacherId ||
-      metadata.teacherId ||
-      undefined,
-    parentStudentIds: normalizeParentIds(
-      metadata.parent_student_ids ?? metadata.parentStudentIds,
-    ),
-  };
-}
-
-class SupabaseAuthService implements AuthService {
+class FirestoreAuthService implements AuthService {
   async login(email: string, password: string): Promise<User> {
-    if (!supabase) {
-      throw new Error("auth.noSupabase");
+    if (!db) throw new Error("auth.noSupabase");
+
+    // 1. Look up the user in the Firestore `users` collection.
+    const user = await findUserInFirestore(email, password);
+    if (user) return user;
+
+    // 2. Fall back to local demo users so the app works without seeding.
+    const normalized = email.trim().toLowerCase();
+    const demo = DEMO_USERS[normalized];
+    if (demo) {
+      if (demo.password !== password) {
+        throw new Error("auth.invalidCredentials");
+      }
+      await saveAuthUser(demo.user);
+      return demo.user;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error || !data?.user) {
-      throw new Error(error?.message || "auth.invalidCredentials");
+    // 3. Approved registrations log in with the guardian email + 4-digit PIN.
+    const approved = await studentService.getAll();
+    const student = approved.find(
+      (s) =>
+        s.email?.toLowerCase() === normalized && s.password === password,
+    );
+    if (!student) {
+      throw new Error("auth.invalidCredentials");
     }
+    const parentUser: User = {
+      id: `usr-${student.id}`,
+      email: student.email ?? normalized,
+      fullName: student.name,
+      role: "parent",
+      parentStudentIds: [student.id],
+    };
+    await saveAuthUser(parentUser);
+    return parentUser;
+  }
 
-    const user = buildUserFromSupabase(data.user);
-    await saveAuthUser(user);
-    return user;
+  async signUp(): Promise<void> {
+    // Registration is handled by the registration service; the admin approval
+    // creates the login. Nothing to do here.
   }
 
   async logout(): Promise<void> {
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
     await clearAuthUser();
   }
 
@@ -78,11 +104,37 @@ class MockAuthService implements AuthService {
   async login(email: string, password: string): Promise<User> {
     const normalized = email.trim().toLowerCase();
     const demo = DEMO_USERS[normalized];
-    if (!demo || demo.password !== password) {
+    if (demo) {
+      if (demo.password !== password) {
+        throw new Error("auth.invalidCredentials");
+      }
+      await saveAuthUser(demo.user);
+      return demo.user;
+    }
+
+    // Approved registrations log in with the guardian email + 4-digit PIN.
+    const approved = await studentService.getAll();
+    const student = approved.find(
+      (s) =>
+        s.email?.toLowerCase() === normalized && s.password === password,
+    );
+    if (!student) {
       throw new Error("auth.invalidCredentials");
     }
-    await saveAuthUser(demo.user);
-    return demo.user;
+    const user: User = {
+      id: `usr-${student.id}`,
+      email: student.email ?? normalized,
+      fullName: student.name,
+      role: "parent",
+      parentStudentIds: [student.id],
+    };
+    await saveAuthUser(user);
+    return user;
+  }
+
+  async signUp(): Promise<void> {
+    // Registration is handled by the registration service; the admin approval
+    // creates the login. Nothing to do here in mock mode.
   }
 
   async logout(): Promise<void> {
@@ -95,6 +147,6 @@ class MockAuthService implements AuthService {
 }
 
 export const authService: AuthService =
-  SUPABASE_CONFIGURED && supabase
-    ? new SupabaseAuthService()
+  FIREBASE_CONFIGURED && db
+    ? new FirestoreAuthService()
     : new MockAuthService();

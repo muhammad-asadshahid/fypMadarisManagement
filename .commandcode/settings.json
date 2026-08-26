@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm ls tsx 2>&1; echo \"---\"; node --version)",
+      "Shell(npx tsx \"C:\\Users\\LENOVO\\AppData\\Local\\Temp\\commandcode\\A--FYP-fypmadrassa\\7db89866-5ccb-4669-ae1a-9bfbd0c7fc1c\\scratchpad\\smoke-registration.ts\" 2>&1)",
+      "Shell(npx tsc --noEmit)",
+      "Shell(npx tsx --tsconfig \"C:\\Users\\LENOVO\\AppData\\Local\\Temp\\commandcode\\A--FYP-fypmadrassa\\7db89866-5ccb-4669-ae1a-9bfbd0c7fc1c\\scratchpad\\tsconfig.smoke.json\" \"C:\\Users\\LENOVO\\AppData\\Local\\Temp\\commandcode\\A--FYP-fypmadrassa\\7db89866-5ccb-4669-ae1a-9bfbd0c7fc1c\\scratchpad\\smoke-registration.ts\" 2>&1)",
+      "Shell(del:*)",
+      "Shell(node -e \"try { require.resolve('dotenv'); console.log('dotenv present'); } catch { console.log('dotenv MISSING'); }\")",
+      "Shell(npm:*)",
+      "Shell(dir node_modules\\dotenv 2>nul && echo EXISTS || echo DOES_NOT_EXIST)",
+      "powershell",
+      "Shell(npx expo config --type public)",
+      "Shell(curl -s -o NUL -w nwfiltssxyovocrkstvw: %%{http_code}\\n https://nwfiltssxyovocrkstvw.supabase.co/auth/v1/health)",
+      "Shell(curl -s -o NUL -w jrlmzltqmaremrrnbzte: %%{http_code}\\n https://jrlmzltqmaremrrnbzte.supabase.co/auth/v1/health)",
+      "Shell(node -e \"console.log(require('./node_modules/@expo/vector-icons/package.json').version)\")"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

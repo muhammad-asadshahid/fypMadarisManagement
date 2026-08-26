@@ -7,10 +7,9 @@ import { ActivityIndicator, Card, Chip, List, Text } from "react-native-paper";
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { PROGRAM_LABEL_KEYS } from "@/constants/programs";
+import { attendanceService, todayStr } from "@/modules/attendance/service";
 import { studentService } from "@/modules/students/service";
 import type { AttendanceStatus, Class, Student } from "@/types";
-
-const STATUS_ORDER: AttendanceStatus[] = ["present", "absent", "leave"];
 
 export default function AttendanceScreen() {
   const { t } = useTranslation();
@@ -21,16 +20,26 @@ export default function AttendanceScreen() {
   const loadAttendance = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentList, classList] = await Promise.all([
+      const [studentList, classList, records] = await Promise.all([
         studentService.getAll(),
         studentService.getClasses(),
+        attendanceService.getByDate(todayStr()),
       ]);
       setStudents(studentList);
       setClasses(classList);
+      const statusById = new Map<string, AttendanceStatus>(
+        records.map((r) => [r.studentId, r.status]),
+      );
+      // Persist today's marked status back onto each student for display.
+      setStatuses(statusById);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const [statuses, setStatuses] = useState<Map<string, AttendanceStatus>>(
+    new Map(),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -39,12 +48,12 @@ export default function AttendanceScreen() {
   );
 
   const attendance = useMemo(() => {
-    return students.map((student, index) => ({
+    return students.map((student) => ({
       ...student,
-      status: STATUS_ORDER[index % STATUS_ORDER.length],
+      status: statuses.get(student.id) ?? "present",
       className: classes.find((cls) => cls.id === student.classId)?.name ?? "—",
     }));
-  }, [classes, students]);
+  }, [classes, students, statuses]);
 
   const summary = useMemo(
     () => ({

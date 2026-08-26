@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
@@ -144,6 +145,15 @@ export default function LoginScreen() {
               >
                 {isLoading ? t("auth.signingIn") : t("auth.signIn")}
               </Button>
+
+              <Button
+                mode="text"
+                onPress={() => router.push("/(auth)/register" as never)}
+                disabled={isLoading}
+                style={styles.register}
+              >
+                {t("auth.register")}
+              </Button>
             </Card.Content>
           </Card>
 
@@ -246,6 +256,9 @@ const styles = StyleSheet.create({
   signIn: {
     marginTop: 12,
     paddingVertical: 4,
+  },
+  register: {
+    marginTop: 4,
   },
   demoCard: {
     borderRadius: 12,

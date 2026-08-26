@@ -32,7 +32,12 @@ export interface Class {
 
 export interface Student {
   id: string;
+  /** Full display name. When created from an approved registration, this is
+   *  synthesized from firstName + lastName. */
   name: string;
+  /** Split name parts (kept in sync with `name` for a common shape with Registration). */
+  firstName?: string;
+  lastName?: string;
   fatherName: string;
   dateOfBirth: string;
   address: string;
@@ -42,6 +47,12 @@ export interface Student {
   classId: string;
   hostelStatus: boolean;
   photoUri?: string;
+  email?: string;
+  password?: string;
+  bFormCnic?: string;
+  city?: string;
+  guardianEmail?: string;
+  guardianMobile?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -141,6 +152,8 @@ export interface FeeRecord {
 
 export interface StudentFormData {
   name: string;
+  firstName?: string;
+  lastName?: string;
   fatherName: string;
   dateOfBirth: string;
   address: string;
@@ -150,9 +163,229 @@ export interface StudentFormData {
   classId: string;
   hostelStatus: boolean;
   photoUri?: string;
+  email?: string;
+  password?: string;
+  bFormCnic?: string;
+  city?: string;
+  guardianEmail?: string;
+  guardianMobile?: string;
+}
+
+export type RegistrationStatus = "pending" | "approved" | "rejected";
+
+export interface Registration {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fatherName: string;
+  bFormCnic: string;
+  guardianMobile: string;
+  guardianEmail: string;
+  password: string;
+  address: string;
+  city: string;
+  programType: ProgramType;
+  photoUri?: string;
+  hostelStatus?: boolean;
+  status: RegistrationStatus;
+  createdAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+}
+
+export interface RegistrationFormData {
+  firstName: string;
+  lastName: string;
+  fatherName: string;
+  bFormCnic: string;
+  guardianMobile: string;
+  guardianEmail: string;
+  password: string;
+  address: string;
+  city: string;
+  programType: ProgramType;
+  photoUri?: string;
+  hostelStatus?: boolean;
 }
 
 export interface StudentDeletionCheck {
   canDelete: boolean;
   reasons: string[];
+}
+
+// ===========================================================================
+// Attendance (FR #4)
+// ===========================================================================
+
+export interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  classId: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  teacherId: string;
+  note?: string;
+  markedAt: string;
+}
+
+export interface AttendanceMarkInput {
+  studentId: string;
+  classId: string;
+  date: string;
+  status: AttendanceStatus;
+  note?: string;
+}
+
+// ===========================================================================
+// Hifz (FR #5)
+// ===========================================================================
+
+export interface HifzRecord {
+  id: string;
+  studentId: string;
+  date: string; // YYYY-MM-DD
+  sabaq: string; // new lesson
+  sabaqi: string; // revision
+  manzil: string; // manzil / recited portion
+  mistakeCount: number;
+  grade: HifzGrade;
+  teacherId: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface HifzUpdateInput {
+  studentId: string;
+  date: string;
+  sabaq: string;
+  sabaqi: string;
+  manzil: string;
+  mistakeCount: number;
+  grade: HifzGrade;
+  note?: string;
+}
+
+// ===========================================================================
+// Nazra (FR #6)
+// ===========================================================================
+
+export interface NazraRecord {
+  id: string;
+  studentId: string;
+  date: string; // YYYY-MM-DD
+  pageFrom: number;
+  pageTo: number;
+  fluency: number; // 0-100
+  remarks?: string;
+  completionPercentage: number; // 0-100
+  teacherId: string;
+  createdAt: string;
+}
+
+export interface NazraUpdateInput {
+  studentId: string;
+  date: string;
+  pageFrom: number;
+  pageTo: number;
+  fluency: number;
+  remarks?: string;
+  completionPercentage: number;
+}
+
+// ===========================================================================
+// Dars-e-Nizami (FR #7)
+// ===========================================================================
+
+export interface Kitab {
+  id: string;
+  name: string;
+  totalChapters: number;
+}
+
+export interface DarsProgressRecord {
+  id: string;
+  studentId: string;
+  kitabId: string;
+  date: string; // YYYY-MM-DD
+  chaptersCompleted: number;
+  pagesCovered: number;
+  takrarAttendance: boolean;
+  teacherId: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface DarsUpdateInput {
+  studentId: string;
+  kitabId: string;
+  date: string;
+  chaptersCompleted: number;
+  pagesCovered: number;
+  takrarAttendance: boolean;
+  note?: string;
+}
+
+// ===========================================================================
+// Asri Taleem (FR #8)
+// ===========================================================================
+
+export interface Subject {
+  id: string;
+  name: string;
+  programType: ProgramType;
+}
+
+export interface MarksRecord {
+  id: string;
+  studentId: string;
+  subjectId: string;
+  classId: string;
+  examType: string; // mid_term | final
+  marksObtained: number;
+  totalMarks: number;
+  date: string;
+  teacherId: string;
+  createdAt: string;
+}
+
+export interface MarksInput {
+  studentId: string;
+  subjectId: string;
+  classId: string;
+  examType: string;
+  marksObtained: number;
+  totalMarks: number;
+}
+
+export interface PromotionRecord {
+  id: string;
+  studentId: string;
+  fromClassId: string;
+  toClassId: string;
+  promotedAt: string;
+  promotedBy: string;
+}
+
+export interface StudentResult {
+  studentId: string;
+  studentName: string;
+  percentage: number;
+  passed: boolean;
+  subjectResults: { subjectName: string; percentage: number }[];
+}
+
+// ===========================================================================
+// Reports (FR #14)
+// ===========================================================================
+
+export interface ReportSummary {
+  totalStudents: number;
+  totalTeachers: number;
+  totalClasses: number;
+  presentToday: number;
+  absentToday: number;
+  totalActiveHostelStudents: number;
+  totalDonations: number;
+  totalFeesCollected: number;
+  totalSalariesPaid: number;
 }

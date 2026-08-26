@@ -29,6 +29,12 @@ const defaultValues: StudentSchemaType = {
   classId: '',
   hostelStatus: false,
   photoUri: undefined,
+  email: '',
+  password: '',
+  bFormCnic: '',
+  city: '',
+  guardianEmail: '',
+  guardianMobile: '',
 };
 
 export function StudentForm({
@@ -61,6 +67,12 @@ export function StudentForm({
           classId: initialData.classId,
           hostelStatus: initialData.hostelStatus,
           photoUri: initialData.photoUri,
+          email: initialData.email ?? '',
+          password: initialData.password ?? '',
+          bFormCnic: initialData.bFormCnic ?? '',
+          city: initialData.city ?? '',
+          guardianEmail: initialData.guardianEmail ?? '',
+          guardianMobile: initialData.guardianMobile ?? '',
         }
       : defaultValues,
   });
@@ -270,6 +282,103 @@ export function StudentForm({
       </View>
       <HelperText type="error" visible={!!errors.classId}>
         {translateError(errors.classId?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            label={t('registration.guardianEmail')}
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={!!errors.email}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.email}>
+        {translateError(errors.email?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            label={t('registration.pin')}
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            secureTextEntry
+            keyboardType="numeric"
+            maxLength={4}
+            error={!!errors.password}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.password}>
+        {translateError(errors.password?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="bFormCnic"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            label={t('registration.bFormCnic')}
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            keyboardType="numeric"
+            error={!!errors.bFormCnic}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.bFormCnic}>
+        {translateError(errors.bFormCnic?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="city"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            label={t('registration.city')}
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            error={!!errors.city}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.city}>
+        {translateError(errors.city?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="guardianMobile"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            label={t('registration.guardianMobile')}
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            keyboardType="phone-pad"
+            error={!!errors.guardianMobile}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.guardianMobile}>
+        {translateError(errors.guardianMobile?.message)}
       </HelperText>
 
       <Controller

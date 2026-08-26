@@ -1,4 +1,10 @@
-import { SUPABASE_CONFIGURED, supabase } from "@/lib/supabase";
+import {
+    collection,
+    doc,
+    getDocs,
+    setDoc,
+} from "firebase/firestore";
+import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
     Donation,
     Donor,
@@ -52,6 +58,74 @@ export interface FinancialService {
   ): Promise<SalaryPayment>;
   getFeeRecords(): Promise<FeeRecord[]>;
   recordFee(fee: Omit<FeeRecord, "id">): Promise<FeeRecord>;
+}
+
+class FirestoreFinancialService implements FinancialService {
+  private col(name: string) {
+    return collection(db!, name);
+  }
+
+  async getDonors(): Promise<Donor[]> {
+    const snapshot = await getDocs(this.col("donors"));
+    return snapshot.docs.map((d) => d.data() as Donor);
+  }
+
+  async addDonor(donor: Omit<Donor, "id">): Promise<Donor> {
+    const record: Donor = { id: `donor-${Date.now()}`, ...donor };
+    await setDoc(doc(db!, "donors", record.id), record);
+    return record;
+  }
+
+  async getDonations(): Promise<Donation[]> {
+    const snapshot = await getDocs(this.col("donations"));
+    return snapshot.docs.map((d) => d.data() as Donation);
+  }
+
+  async recordDonation(donation: Omit<Donation, "id">): Promise<Donation> {
+    const record: Donation = { id: `donation-${Date.now()}`, ...donation };
+    await setDoc(doc(db!, "donations", record.id), record);
+    return record;
+  }
+
+  async getZakatDistributions(): Promise<ZakatDistribution[]> {
+    const snapshot = await getDocs(this.col("zakatDistributions"));
+    return snapshot.docs.map((d) => d.data() as ZakatDistribution);
+  }
+
+  async recordZakatDistribution(
+    distribution: Omit<ZakatDistribution, "id">,
+  ): Promise<ZakatDistribution> {
+    const record: ZakatDistribution = {
+      id: `zakat-${Date.now()}`,
+      ...distribution,
+    };
+    await setDoc(doc(db!, "zakatDistributions", record.id), record);
+    return record;
+  }
+
+  async getSalaryPayments(): Promise<SalaryPayment[]> {
+    const snapshot = await getDocs(this.col("salaryPayments"));
+    return snapshot.docs.map((d) => d.data() as SalaryPayment);
+  }
+
+  async recordSalaryPayment(
+    payment: Omit<SalaryPayment, "id">,
+  ): Promise<SalaryPayment> {
+    const record: SalaryPayment = { id: `salary-${Date.now()}`, ...payment };
+    await setDoc(doc(db!, "salaryPayments", record.id), record);
+    return record;
+  }
+
+  async getFeeRecords(): Promise<FeeRecord[]> {
+    const snapshot = await getDocs(this.col("feeRecords"));
+    return snapshot.docs.map((d) => d.data() as FeeRecord);
+  }
+
+  async recordFee(fee: Omit<FeeRecord, "id">): Promise<FeeRecord> {
+    const record: FeeRecord = { id: `fee-${Date.now()}`, ...fee };
+    await setDoc(doc(db!, "feeRecords", record.id), record);
+    return record;
+  }
 }
 
 class MockFinancialService implements FinancialService {
@@ -114,6 +188,6 @@ class MockFinancialService implements FinancialService {
 }
 
 export const financialService: FinancialService =
-  SUPABASE_CONFIGURED && supabase
-    ? new MockFinancialService()
+  FIREBASE_CONFIGURED && db
+    ? new FirestoreFinancialService()
     : new MockFinancialService();

@@ -7,12 +7,16 @@ import { ActivityIndicator, Chip, List } from "react-native-paper";
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { PROGRAM_LABEL_KEYS } from "@/constants/programs";
+import { darsENizamiService } from "@/modules/dars-e-nizami/service";
 import { studentService } from "@/modules/students/service";
-import type { Student } from "@/types";
+import type { DarsProgressRecord, Student } from "@/types";
 
 export default function DarsENizamiScreen() {
   const { t } = useTranslation();
   const [students, setStudents] = useState<Student[]>([]);
+  const [latestByStudent, setLatestByStudent] = useState<
+    Record<string, DarsProgressRecord>
+  >({});
   const [loading, setLoading] = useState(true);
 
   const loadStudents = useCallback(async () => {
@@ -20,6 +24,18 @@ export default function DarsENizamiScreen() {
     try {
       const studentList = await studentService.getAll();
       setStudents(studentList);
+
+      const darsStudents = studentList.filter(
+        (s) => s.programType === "dars_e_nizami",
+      );
+      const latest: Record<string, DarsProgressRecord> = {};
+      await Promise.all(
+        darsStudents.map(async (s) => {
+          const recs = await darsENizamiService.getByStudent(s.id);
+          if (recs.length) latest[s.id] = recs[0];
+        }),
+      );
+      setLatestByStudent(latest);
     } finally {
       setLoading(false);
     }
@@ -46,17 +62,20 @@ export default function DarsENizamiScreen() {
         <FlatList
           data={darsStudents}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <List.Item
-              title={item.name}
-              description={`${t(PROGRAM_LABEL_KEYS[item.programType])} • ${item.admissionDate}`}
-              right={() => (
-                <Chip style={styles.chip} mode="outlined">
-                  {item.classId}
-                </Chip>
-              )}
-            />
-          )}
+          renderItem={({ item }) => {
+            const rec = latestByStudent[item.id];
+            return (
+              <List.Item
+                title={item.name}
+                description={`${t(PROGRAM_LABEL_KEYS[item.programType])} • ${rec ? `${rec.chaptersCompleted} chapters, ${rec.pagesCovered} pages` : "\u2014"}`}
+                right={() => (
+                  <Chip style={styles.chip} mode="outlined">
+                    {rec?.takrarAttendance ? "Takrar" : "\u2014"}
+                  </Chip>
+                )}
+              />
+            );
+          }}
           ItemSeparatorComponent={() => <View style={styles.divider} />}
         />
       )}

@@ -17,6 +17,12 @@ export const studentSchema = z.object({
   classId: z.string().min(1, 'validation.classRequired'),
   hostelStatus: z.boolean(),
   photoUri: z.string().optional(),
+  email: z.string().email('validation.emailInvalid').optional().or(z.literal('')),
+  password: z.string().optional(),
+  bFormCnic: z.string().optional(),
+  city: z.string().optional(),
+  guardianEmail: z.string().optional(),
+  guardianMobile: z.string().optional(),
 });
 
 export type StudentSchemaType = z.infer<typeof studentSchema>;

@@ -4,7 +4,18 @@ import {
     STUDENTS_WITH_FEE_DUES,
     STUDENTS_WITH_HOSTEL,
 } from "@/constants/mock-data";
-import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
+import {
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    orderBy,
+    setDoc,
+    updateDoc,
+} from "firebase/firestore";
+import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
     Class,
     Student,
@@ -25,150 +36,92 @@ export interface StudentService {
 
 let studentsDb = [...MOCK_STUDENTS];
 
-function mapStudentFromDb(record: any): Student {
-  return {
-    id: String(record.id),
-    name: String(record.name),
-    fatherName: String(record.father_name ?? record.fatherName ?? ""),
-    dateOfBirth: String(record.date_of_birth ?? record.dateOfBirth ?? ""),
-    address: String(record.address ?? ""),
-    contactNumber: String(record.contact_number ?? record.contactNumber ?? ""),
-    admissionDate: String(record.admission_date ?? record.admissionDate ?? ""),
-    programType: String(
-      record.program_type ?? record.programType ?? "hifz_ul_quran",
-    ) as Student["programType"],
-    classId: String(record.class_id ?? record.classId ?? ""),
-    hostelStatus: Boolean(record.hostel_status ?? record.hostelStatus),
-    photoUri: record.photo_uri ?? record.photoUri ?? undefined,
-    createdAt: String(
-      record.created_at ?? record.createdAt ?? new Date().toISOString(),
-    ),
-    updatedAt: String(
-      record.updated_at ?? record.updatedAt ?? new Date().toISOString(),
-    ),
-  };
-}
-
-function mapStudentToDb(data: StudentFormData) {
-  return {
-    name: data.name,
-    father_name: data.fatherName,
-    date_of_birth: data.dateOfBirth,
-    address: data.address,
-    contact_number: data.contactNumber,
-    admission_date: data.admissionDate,
-    program_type: data.programType,
-    class_id: data.classId,
-    hostel_status: data.hostelStatus,
-    photo_uri: data.photoUri ?? null,
-  };
-}
-
 function generateId(): string {
   return `stu-${Date.now()}`;
 }
 
-class SupabaseStudentService implements StudentService {
-  async getAll(): Promise<Student[]> {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .order("created_at", { ascending: false });
+// Registration does not carry a single `name`; it stores firstName/lastName.
+// Ensure the student always has a display name and a split name for symmetry.
+function normalizeName(data: StudentFormData): StudentFormData {
+  const name =
+    (data.name ?? "").trim() ||
+    [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
+  const parts = name.split(/\s+/);
+  return {
+    ...data,
+    name,
+    firstName: data.firstName ?? parts[0] ?? "",
+    lastName: data.lastName ?? parts.slice(1).join(" ") ?? "",
+  };
+}
 
-    if (error) throw error;
-    return (data ?? []).map(mapStudentFromDb);
+class FirestoreStudentService implements StudentService {
+  private studentsCol() {
+    return collection(db!, "students");
+  }
+
+  async getAll(): Promise<Student[]> {
+    const q = query(this.studentsCol(), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => d.data() as Student);
   }
 
   async getById(id: string): Promise<Student | null> {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) {
-      if (error.code === "PGRST116") {
-        return null;
-      }
-      throw error;
-    }
-    return data ? mapStudentFromDb(data) : null;
+    const snap = await getDoc(doc(db!, "students", id));
+    if (!snap.exists()) return null;
+    return snap.data() as Student;
   }
 
-  async search(query: string): Promise<Student[]> {
-    const q = query.trim();
+  async search(searchQuery: string): Promise<Student[]> {
+    const q = searchQuery.trim().toLowerCase();
     if (!q) return this.getAll();
-    if (!supabase) return [];
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .or(
-        `name.ilike.%${q}%,father_name.ilike.%${q}%,contact_number.ilike.%${q}%`,
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return (data ?? []).map(mapStudentFromDb);
+    const all = await this.getAll();
+    return all.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.fatherName.toLowerCase().includes(q) ||
+        s.contactNumber.includes(q),
+    );
   }
 
   async create(data: StudentFormData): Promise<Student> {
-    if (!supabase) throw new Error("Supabase is not available");
     const now = new Date().toISOString();
-    const values = {
-      ...mapStudentToDb(data),
-      created_at: now,
-      updated_at: now,
+    const id = generateId();
+    const student: Student = {
+      id,
+      ...normalizeName(data),
+      createdAt: now,
+      updatedAt: now,
     };
-    const { data: record, error } = await supabase
-      .from("students")
-      .insert(values)
-      .select()
-      .single();
-    if (error) throw error;
-    if (!record) throw new Error("Student record not returned");
-    return mapStudentFromDb(record);
+    await setDoc(doc(db!, "students", id), student);
+    return student;
   }
 
   async update(id: string, data: StudentFormData): Promise<Student> {
-    if (!supabase) throw new Error("Supabase is not available");
-    const values = {
-      ...mapStudentToDb(data),
-      updated_at: new Date().toISOString(),
+    const ref = doc(db!, "students", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("Student not found");
+    const updated: Student = {
+      ...(snap.data() as Student),
+      ...normalizeName(data),
+      id,
+      updatedAt: new Date().toISOString(),
     };
-    const { data: record, error } = await supabase
-      .from("students")
-      .update(values)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    if (!record) throw new Error("Student record not returned");
-    return mapStudentFromDb(record);
+    await updateDoc(ref, { ...updated });
+    return updated;
   }
 
-  async canDelete(id: string): Promise<StudentDeletionCheck> {
+  async canDelete(): Promise<StudentDeletionCheck> {
     return { canDelete: true, reasons: [] };
   }
 
   async delete(id: string): Promise<void> {
-    if (!supabase) throw new Error("Supabase is not available");
-    const { error } = await supabase.from("students").delete().eq("id", id);
-    if (error) throw error;
+    await deleteDoc(doc(db!, "students", id));
   }
 
   async getClasses(): Promise<Class[]> {
-    if (!supabase) return [];
-    const { data, error } = await supabase.from("classes").select("*");
-    if (error) throw error;
-    return (data ?? []).map((cls: any) => ({
-      id: String(cls.id),
-      name: String(cls.name),
-      programType: String(
-        cls.program_type ?? cls.programType ?? "hifz_ul_quran",
-      ) as Class["programType"],
-    }));
+    const snapshot = await getDocs(collection(db!, "classes"));
+    return snapshot.docs.map((d) => d.data() as Class);
   }
 }
 
@@ -199,7 +152,7 @@ class MockStudentService implements StudentService {
     const now = new Date().toISOString();
     const student: Student = {
       id: generateId(),
-      ...data,
+      ...normalizeName(data),
       createdAt: now,
       updatedAt: now,
     };
@@ -212,7 +165,7 @@ class MockStudentService implements StudentService {
     if (index === -1) throw new Error("Student not found");
     const updated: Student = {
       ...studentsDb[index],
-      ...data,
+      ...normalizeName(data),
       updatedAt: new Date().toISOString(),
     };
     studentsDb[index] = updated;
@@ -244,6 +197,6 @@ class MockStudentService implements StudentService {
 }
 
 export const studentService: StudentService =
-  SUPABASE_CONFIGURED && supabase
-    ? new SupabaseStudentService()
+  FIREBASE_CONFIGURED && db
+    ? new FirestoreStudentService()
     : new MockStudentService();

@@ -27,6 +27,7 @@
     "signingIn": "سائن ان ہو رہا ہے...",
     "invalidCredentials": "غلط ای میل یا پاس ورڈ",
     "welcomeBack": "خوش آمدید",
+    "register": "رجسٹر کریں",
     "demoAccounts": "ڈیمو اکاؤنٹس",
     "adminDemo": "ایڈمن: admin@mms.com / admin123",
     "teacherDemo": "استاد: teacher@mms.com / teacher123",
@@ -34,6 +35,7 @@
   },
   "nav": {
     "dashboard": "ڈیش بورڈ",
+    "approvals": "منظوریاں",
     "students": "طلبہ",
     "teachers": "اساتذہ",
     "attendance": "حاضری",
@@ -90,6 +92,31 @@
     "deleted": "طالب علم کامیابی سے حذف ہو گیا",
     "hostelYes": "ہاسٹل",
     "hostelNo": "دن کا طالب علم"
+  },
+  "registration": {
+    "title": "طالب علم کی رجسٹریشن",
+    "subtitle": "فارم پُر کریں۔ ایڈمن کی منظوری کے بعد آپ کا اکاؤنٹ فعال ہو جائے گا۔",
+    "firstName": "پہلا نام",
+    "lastName": "آخری نام",
+    "fatherName": "والد کا نام",
+    "bFormCnic": "بی فارم / شناختی کارڈ",
+    "guardianMobile": "سرپرست کا موبائل نمبر",
+    "guardianEmail": "سرپرست کی ای میل",
+    "pin": "پن (4 ہندسے)",
+    "confirmPin": "پن کی تصدیق کریں",
+    "address": "پتہ",
+    "city": "شہر",
+    "programType": "داخلے کا پروگرام",
+    "uploadPicture": "تصویر اپ لوڈ کریں",
+    "submit": "رجسٹریشن جمع کریں",
+    "submitted": "رجسٹریشن جمع ہو گئی! ایڈمن کی منظوری کے بعد آپ لاگ ان کر سکیں گے۔",
+    "approve": "منظور کریں",
+    "reject": "مسترد کریں",
+    "approved": "طالب علم منظور اور داخل ہو گیا",
+    "rejected": "رجسٹریشن مسترد کر دی گئی",
+    "pendingTitle": "زیر التوا منظوریاں",
+    "empty": "کوئی زیر التوا رجسٹریشن نہیں",
+    "submittedAt": "جمع کرنے کی تاریخ"
   },
   "financial": {
     "donors": "ڈونرز",
@@ -151,11 +178,27 @@
     "contactMin": "رابطہ نمبر کم از کم 10 ہندسوں کا ہونا چاہیے",
     "classRequired": "براہ کرم کلاس منتخب کریں",
     "emailInvalid": "درست ای میل درج کریں",
-    "passwordMin": "پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے"
+    "passwordMin": "پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے",
+    "bFormMin": "بی فارم/شناختی کارڈ کم از کم 13 ہندسوں کا ہونا چاہیے",
+    "cityMin": "شہر کم از کم 2 حروف کا ہونا چاہیے",
+    "pin4": "پن بالکل 4 ہندسوں کا ہونا چاہیے",
+    "pinMismatch": "پن مماثل نہیں ہیں"
   },
   "roles": {
     "admin": "منتظم",
     "teacher": "استاد",
     "parent": "والد"
+  },
+  "reports": {
+    "title": "رپورٹس",
+    "totalStudents": "کل طلباء",
+    "totalTeachers": "کل اساتذہ",
+    "totalClasses": "کل کلاسیں",
+    "presentToday": "آج حاضر",
+    "absentToday": "آج غیر حاضر",
+    "hostelStudents": "ہاسٹل طلباء",
+    "totalDonations": "کل عطیات",
+    "totalFees": "وصول شدہ فیس",
+    "totalSalaries": "ادا شدہ تنخواہیں"
   }
 }

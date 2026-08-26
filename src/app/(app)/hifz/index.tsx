@@ -7,8 +7,9 @@ import { ActivityIndicator, Chip, List } from "react-native-paper";
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { PROGRAM_LABEL_KEYS } from "@/constants/programs";
+import { hifzService } from "@/modules/hifz/service";
 import { studentService } from "@/modules/students/service";
-import type { HifzGrade, Student } from "@/types";
+import type { HifzGrade, HifzRecord, Student } from "@/types";
 
 const GRADE_ORDER: HifzGrade[] = [
   "mumtaz",
@@ -20,6 +21,9 @@ const GRADE_ORDER: HifzGrade[] = [
 export default function HifzScreen() {
   const { t } = useTranslation();
   const [students, setStudents] = useState<Student[]>([]);
+  const [latestByStudent, setLatestByStudent] = useState<
+    Record<string, HifzRecord>
+  >({});
   const [loading, setLoading] = useState(true);
 
   const loadStudents = useCallback(async () => {
@@ -27,6 +31,18 @@ export default function HifzScreen() {
     try {
       const studentList = await studentService.getAll();
       setStudents(studentList);
+
+      const hifzStudents = studentList.filter(
+        (s) => s.programType === "hifz_ul_quran",
+      );
+      const latest: Record<string, HifzRecord> = {};
+      await Promise.all(
+        hifzStudents.map(async (s) => {
+          const recs = await hifzService.getByStudent(s.id);
+          if (recs.length) latest[s.id] = recs[0];
+        }),
+      );
+      setLatestByStudent(latest);
     } finally {
       setLoading(false);
     }
@@ -39,15 +55,16 @@ export default function HifzScreen() {
   );
 
   const hifzStudents = useMemo(
-    () =>
-      students
-        .filter((student) => student.programType === "hifz_ul_quran")
-        .map((student, index) => ({
-          ...student,
-          grade: GRADE_ORDER[index % GRADE_ORDER.length],
-        })),
+    () => students.filter((s) => s.programType === "hifz_ul_quran"),
     [students],
   );
+
+  const gradeFor = (studentId: string): HifzGrade => {
+    const rec = latestByStudent[studentId];
+    if (rec) return rec.grade;
+    const idx = hifzStudents.findIndex((s) => s.id === studentId);
+    return GRADE_ORDER[idx % GRADE_ORDER.length];
+  };
 
   return (
     <ScreenWrapper title={t("nav.hifz")}>
@@ -65,7 +82,7 @@ export default function HifzScreen() {
               description={`${t(PROGRAM_LABEL_KEYS[item.programType])} • ${item.fatherName}`}
               right={() => (
                 <Chip style={styles.chip} mode="outlined">
-                  {item.grade}
+                  {gradeFor(item.id)}
                 </Chip>
               )}
             />

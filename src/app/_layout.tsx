@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 
 import { darkTheme, lightTheme } from "@/constants/paper-theme";
+import { seedIfEmpty } from "@/lib/seed";
 import { useAuthStore } from "@/store/authStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import i18n from "../i18n";
@@ -36,6 +37,7 @@ export default function RootLayout() {
   useEffect(() => {
     initializeAuth();
     initializeSettings();
+    seedIfEmpty();
   }, [initializeAuth, initializeSettings]);
 
   useEffect(() => {

@@ -9,6 +9,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { name: 'index', labelKey: 'nav.dashboard', icon: 'view-dashboard', roles: ['admin', 'teacher', 'parent'] },
+  { name: 'approvals', labelKey: 'nav.approvals', icon: 'clipboard-check', roles: ['admin'] },
   { name: 'students', labelKey: 'nav.students', icon: 'account-school', roles: ['admin'] },
   { name: 'teachers', labelKey: 'nav.teachers', icon: 'human-male-board', roles: ['admin'] },
   { name: 'attendance', labelKey: 'nav.attendance', icon: 'calendar-check', roles: ['admin', 'teacher'] },

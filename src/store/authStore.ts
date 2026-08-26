@@ -10,6 +10,7 @@ interface AuthState {
   isInitialized: boolean;
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -32,6 +33,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: false });
       throw error;
     }
+  },
+
+  signUp: async (email, password) => {
+    await authService.signUp(email, password);
   },
 
   logout: async () => {
