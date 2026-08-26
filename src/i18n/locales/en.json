@@ -204,7 +204,7 @@
     "contactMin": "Contact number must be at least 10 digits",
     "classRequired": "Please select a class",
     "emailInvalid": "Enter a valid email address",
-    "passwordMin": "Password must be at least 6 characters",
+    "passwordRequired": "Password is required",
     "bFormMin": "B-Form/CNIC must be at least 13 digits",
     "cityMin": "City must be at least 2 characters",
     "pin4": "PIN must be exactly 4 digits",
