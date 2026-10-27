@@ -87,6 +87,9 @@ export default function TeacherDetailScreen() {
           <Text variant="headlineSmall" style={styles.name}>
             {teacher.name}
           </Text>
+          <Text variant="bodyMedium">
+            {t("teachers.email")}: {teacher.email ?? t("common.noData")}
+          </Text>
           <Text variant="bodyMedium">{teacher.contactNumber}</Text>
           <Text variant="bodySmall">
             {t("teachers.salary")}: {teacher.salary}

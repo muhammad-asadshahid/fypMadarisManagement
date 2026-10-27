@@ -32,7 +32,7 @@ export function TeacherForm({
   isSubmitting = false,
 }: {
   classes: Class[];
-  initialData?: TeacherSchemaType;
+  initialData?: Partial<TeacherSchemaType>;
   onSubmit: (d: TeacherSchemaType) => Promise<void>;
   submitLabel: string;
   isSubmitting?: boolean;
@@ -48,6 +48,8 @@ export function TeacherForm({
     resolver: zodResolver(teacherSchema),
     defaultValues: initialData ?? {
       name: "",
+      email: "",
+      password: "",
       contactNumber: "",
       subjects: [],
       classIds: [],
@@ -94,6 +96,48 @@ export function TeacherForm({
       />
       <HelperText type="error" visible={!!errors.contactNumber}>
         {translateError(errors.contactNumber?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onBlur, onChange, value } }) => (
+          <TextInput
+            label={t("teachers.email")}
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={!!errors.email}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.email}>
+        {translateError(errors.email?.message)}
+      </HelperText>
+
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { onBlur, onChange, value } }) => (
+          <TextInput
+            label={t("teachers.pin")}
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            mode="outlined"
+            keyboardType="numeric"
+            maxLength={4}
+            secureTextEntry
+            error={!!errors.password}
+          />
+        )}
+      />
+      <HelperText type="error" visible={!!errors.password}>
+        {translateError(errors.password?.message)}
       </HelperText>
 
       <Controller

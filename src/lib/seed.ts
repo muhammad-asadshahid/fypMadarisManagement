@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
+import { monthKey } from "@/lib/date";
 import type {
   Class,
   Registration,
@@ -9,6 +10,11 @@ import type {
   NazraRecord,
   DarsProgressRecord,
   AttendanceRecord,
+  HostelAllocation,
+  MealPlanDay,
+  Room,
+  Teacher,
+  VisitorRecord,
 } from "@/types";
 
 const CLASSES: Class[] = [
@@ -27,7 +33,7 @@ const USERS: User[] = [
     role: "admin",
   },
   {
-    id: "usr-teacher",
+    id: "usr-tch-1",
     email: "teacher@mms.com",
     fullName: "Maulana Abdullah",
     role: "teacher",
@@ -44,7 +50,7 @@ const USERS: User[] = [
 
 const USER_PASSWORDS: Record<string, string> = {
   "usr-admin": "admin123",
-  "usr-teacher": "teacher123",
+  "usr-tch-1": "1234",
   "usr-parent": "parent123",
 };
 
@@ -126,122 +132,247 @@ const REGISTRATIONS: Registration[] = [
   },
 ];
 
+const HOSTEL_ROOMS: Room[] = [
+  { id: "room-1", name: "Room A", capacity: 4, createdAt: "2024-01-10T08:00:00Z" },
+  { id: "room-2", name: "Room B", capacity: 3, createdAt: "2024-01-10T08:00:00Z" },
+];
+
+const HOSTEL_ALLOCATIONS: HostelAllocation[] = [
+  { id: "alloc-1", studentId: "stu-1", roomId: "room-1", assignedAt: "2024-01-10T08:00:00Z" },
+  { id: "alloc-2", studentId: "stu-3", roomId: "room-2", assignedAt: "2024-01-11T08:00:00Z" },
+];
+
+const MEAL_PLAN: MealPlanDay[] = [
+  { id: "monday", breakfast: "Paratha, egg, tea", lunch: "Rice, daal, salad", dinner: "Chicken curry, roti" },
+  { id: "tuesday", breakfast: "Halwa puri, tea", lunch: "Aloo gosht, rice", dinner: "Vegetable, roti" },
+  { id: "wednesday", breakfast: "Omelette, toast, tea", lunch: "Chana pulao, raita", dinner: "Daal, roti" },
+  { id: "thursday", breakfast: "Paratha, curd, tea", lunch: "Rice, kadhi, salad", dinner: "Qeema, roti" },
+  { id: "friday", breakfast: "Nihari, naan", lunch: "Biryani, raita", dinner: "Vegetable, roti" },
+  { id: "saturday", breakfast: "Anda paratha, tea", lunch: "Rice, daal, salad", dinner: "Chicken karahi, roti" },
+  { id: "sunday", breakfast: "Halwa puri, tea", lunch: "Pulao, raita", dinner: "Aloo gosht, roti" },
+];
+
+const TEACHERS: Teacher[] = [
+  { id: "tch-1", name: "Maulana Abdullah", email: "teacher@mms.com", password: "1234", contactNumber: "0300111222", salary: 30000, subjects: ["Hifz"], classIds: ["cls-1"] },
+  { id: "tch-2", name: "Qari Bilal", email: "qari@mms.com", password: "5678", contactNumber: "0300222333", salary: 28000, subjects: ["Nazra"], classIds: ["cls-2"] },
+];
+
 export async function seedIfEmpty(): Promise<void> {
   const firestore = db;
   if (!FIREBASE_CONFIGURED || !firestore) return;
 
   try {
-    const snapshot = await getDocs(collection(firestore, "classes"));
-    if (!snapshot.empty) return;
+    const [
+      coreSnap,
+      hostelSnap,
+      mealPlanSnap,
+      teachersSnap,
+      usersSnap,
+      salarySnap,
+    ] = await Promise.all([
+      getDocs(collection(firestore, "classes")),
+      getDocs(collection(firestore, "hostelRooms")),
+      getDocs(collection(firestore, "mealPlan")),
+      getDocs(collection(firestore, "teachers")),
+      getDocs(collection(firestore, "users")),
+      getDocs(collection(firestore, "salaryPayments")),
+    ]);
+    if (
+      !coreSnap.empty &&
+      !hostelSnap.empty &&
+      !mealPlanSnap.empty &&
+      !teachersSnap.empty &&
+      !salarySnap.empty
+    )
+      return;
 
     const batch = writeBatch(firestore);
 
-    CLASSES.forEach((c) => {
-      batch.set(doc(firestore, "classes", c.id), c);
+    // Tidy up legacy / duplicate teacher login rows: keep only the canonical
+    // `usr-<teacherId>` document for each known teacher and drop the rest
+    // (e.g. the old `usr-teacher` prototype account).
+    const knownTeacherIds = new Set<string>([
+      ...teachersSnap.docs.map((d) => d.id),
+      ...TEACHERS.map((t) => t.id),
+    ]);
+    usersSnap.docs.forEach((userDoc) => {
+      const data = userDoc.data();
+      const teacherId = data.teacherId;
+      if (
+        data.role === "teacher" &&
+        typeof teacherId === "string" &&
+        knownTeacherIds.has(teacherId) &&
+        userDoc.id !== `usr-${teacherId}`
+      ) {
+        batch.delete(userDoc.ref);
+      }
     });
 
-    USERS.forEach((u) => {
-      batch.set(doc(firestore, "users", u.id), {
-        ...u,
-        password: USER_PASSWORDS[u.id] ?? "",
-        email: u.email.toLowerCase(),
+    if (coreSnap.empty) {
+      CLASSES.forEach((c) => {
+        batch.set(doc(firestore, "classes", c.id), c);
       });
-    });
 
-    STUDENTS.forEach((s) => {
-      batch.set(doc(firestore, "students", s.id), s);
-    });
+      USERS.forEach((u) => {
+        batch.set(doc(firestore, "users", u.id), {
+          ...u,
+          password: USER_PASSWORDS[u.id] ?? "",
+          email: u.email.toLowerCase(),
+        });
+      });
 
-    REGISTRATIONS.forEach((r) => {
-      batch.set(doc(firestore, "registrations", r.id), r);
-    });
+      STUDENTS.forEach((s) => {
+        batch.set(doc(firestore, "students", s.id), s);
+      });
 
-    // Default catalog: Hifz grades, Nazra completion, Dars kutub, Asri subjects.
-    [
-      { id: "kitab-nahw", name: "Nahw", totalChapters: 20 },
-      { id: "kitab-sarf", name: "Sarf", totalChapters: 18 },
-      { id: "kitab-fiqh", name: "Fiqh", totalChapters: 25 },
-      { id: "kitab-tafsir", name: "Tafsir", totalChapters: 15 },
-    ].forEach((k) => batch.set(doc(firestore, "kitab", k.id), k));
+      REGISTRATIONS.forEach((r) => {
+        batch.set(doc(firestore, "registrations", r.id), r);
+      });
 
-    [
-      { id: "sub-urdu", name: "Urdu", programType: "asri_taleem" },
-      { id: "sub-english", name: "English", programType: "asri_taleem" },
-      { id: "sub-mathematics", name: "Mathematics", programType: "asri_taleem" },
-      { id: "sub-science", name: "Science", programType: "asri_taleem" },
-      { id: "sub-islamiyat", name: "Islamiyat", programType: "asri_taleem" },
-    ].forEach((s) => batch.set(doc(firestore, "subjects", s.id), s));
+      // Default catalog: Hifz grades, Nazra completion, Dars kutub, Asri subjects.
+      [
+        { id: "kitab-nahw", name: "Nahw", totalChapters: 20 },
+        { id: "kitab-sarf", name: "Sarf", totalChapters: 18 },
+        { id: "kitab-fiqh", name: "Fiqh", totalChapters: 25 },
+        { id: "kitab-tafsir", name: "Tafsir", totalChapters: 15 },
+      ].forEach((k) => batch.set(doc(firestore, "kitab", k.id), k));
 
-    // Per-student progress records so every module screens show real data.
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const teacherId = "tch-1";
+      [
+        { id: "sub-urdu", name: "Urdu", programType: "asri_taleem" },
+        { id: "sub-english", name: "English", programType: "asri_taleem" },
+        { id: "sub-mathematics", name: "Mathematics", programType: "asri_taleem" },
+        { id: "sub-science", name: "Science", programType: "asri_taleem" },
+        { id: "sub-islamiyat", name: "Islamiyat", programType: "asri_taleem" },
+      ].forEach((s) => batch.set(doc(firestore, "subjects", s.id), s));
 
-    const hifzDemo: Omit<HifzRecord, "id">[] = [
-      {
-        studentId: "stu-1",
-        date: today,
-        sabaq: "Surah 2 v61-65",
-        sabaqi: "Surah 1",
-        manzil: "Manzil 1",
-        mistakeCount: 2,
-        grade: "jayyid",
-        teacherId,
-        note: "Good pace",
-        createdAt: now.toISOString(),
-      },
-    ];
+      // Per-student progress records so every module screens show real data.
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+      const teacherId = "tch-1";
 
-    const nazraDemo: Omit<NazraRecord, "id">[] = [
-      {
-        studentId: "stu-2",
-        date: today,
-        pageFrom: 4,
-        pageTo: 6,
-        fluency: 78,
-        remarks: "Clear tajweed",
-        completionPercentage: 12,
-        teacherId,
-        createdAt: now.toISOString(),
-      },
-    ];
+      const hifzDemo: Omit<HifzRecord, "id">[] = [
+        {
+          studentId: "stu-1",
+          date: today,
+          sabaq: "Surah 2 v61-65",
+          sabaqi: "Surah 1",
+          manzil: "Manzil 1",
+          mistakeCount: 2,
+          grade: "jayyid",
+          teacherId,
+          note: "Good pace",
+          createdAt: now.toISOString(),
+        },
+      ];
 
-    const darsDemo: Omit<DarsProgressRecord, "id">[] = [
-      {
-        studentId: "stu-3",
-        kitabId: "kitab-nahw",
-        date: today,
-        chaptersCompleted: 3,
-        pagesCovered: 40,
-        takrarAttendance: true,
-        note: "On track",
-        teacherId,
-        createdAt: now.toISOString(),
-      },
-    ];
+      const nazraDemo: Omit<NazraRecord, "id">[] = [
+        {
+          studentId: "stu-2",
+          date: today,
+          pageFrom: 4,
+          pageTo: 6,
+          fluency: 78,
+          remarks: "Clear tajweed",
+          completionPercentage: 12,
+          teacherId,
+          createdAt: now.toISOString(),
+        },
+      ];
 
-    hifzDemo.forEach((r, i) =>
-      batch.set(doc(firestore, "hifzRecords", `hifz-seed-${i + 1}`), r),
-    );
-    nazraDemo.forEach((r, i) =>
-      batch.set(doc(firestore, "nazraRecords", `nazra-seed-${i + 1}`), r),
-    );
-    darsDemo.forEach((r, i) =>
-      batch.set(
-        doc(firestore, "darsProgressRecords", `dars-seed-${i + 1}`),
-        r,
-      ),
-    );
+      const darsDemo: Omit<DarsProgressRecord, "id">[] = [
+        {
+          studentId: "stu-3",
+          kitabId: "kitab-nahw",
+          date: today,
+          chaptersCompleted: 3,
+          pagesCovered: 40,
+          takrarAttendance: true,
+          note: "On track",
+          teacherId,
+          createdAt: now.toISOString(),
+        },
+      ];
 
-    // Attendance for today.
-    const attendanceDemo: Omit<AttendanceRecord, "id">[] = [
-      { studentId: "stu-1", classId: "cls-1", date: today, status: "present", teacherId, markedAt: now.toISOString() },
-      { studentId: "stu-2", classId: "cls-2", date: today, status: "present", teacherId, markedAt: now.toISOString() },
-      { studentId: "stu-3", classId: "cls-3", date: today, status: "absent", teacherId, markedAt: now.toISOString() },
-    ];
-    attendanceDemo.forEach((r, i) =>
-      batch.set(doc(firestore, "attendance", `att-seed-${i + 1}`), r),
-    );
+      hifzDemo.forEach((r, i) =>
+        batch.set(doc(firestore, "hifzRecords", `hifz-seed-${i + 1}`), r),
+      );
+      nazraDemo.forEach((r, i) =>
+        batch.set(doc(firestore, "nazraRecords", `nazra-seed-${i + 1}`), r),
+      );
+      darsDemo.forEach((r, i) =>
+        batch.set(
+          doc(firestore, "darsProgressRecords", `dars-seed-${i + 1}`),
+          r,
+        ),
+      );
+
+      // Attendance for today.
+      const attendanceDemo: Omit<AttendanceRecord, "id">[] = [
+        { studentId: "stu-1", classId: "cls-1", date: today, status: "present", teacherId, markedAt: now.toISOString() },
+        { studentId: "stu-2", classId: "cls-2", date: today, status: "present", teacherId, markedAt: now.toISOString() },
+        { studentId: "stu-3", classId: "cls-3", date: today, status: "absent", teacherId, markedAt: now.toISOString() },
+      ];
+      attendanceDemo.forEach((r, i) =>
+        batch.set(doc(firestore, "attendance", `att-seed-${i + 1}`), r),
+      );
+    }
+
+    // Hostel data — seeded independently so it lands even on a DB that already
+    // has students/classes.
+    if (hostelSnap.empty) {
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+
+      HOSTEL_ROOMS.forEach((r) =>
+        batch.set(doc(firestore, "hostelRooms", r.id), r),
+      );
+      HOSTEL_ALLOCATIONS.forEach((a) =>
+        batch.set(doc(firestore, "hostelAllocations", a.id), a),
+      );
+
+      const visitorsDemo: Omit<VisitorRecord, "id">[] = [
+        { studentId: "stu-1", visitorName: "Muhammad Ali", visitDate: today, notes: "Father" },
+        { studentId: "stu-3", visitorName: "Tariq Raza", visitDate: today, notes: "Father" },
+      ];
+      visitorsDemo.forEach((v, i) =>
+        batch.set(doc(firestore, "visitorRecords", `visitor-seed-${i + 1}`), v),
+      );
+    }
+
+    // Default weekly meal plan the admin can edit in place.
+    if (mealPlanSnap.empty) {
+      MEAL_PLAN.forEach((day) =>
+        batch.set(doc(firestore, "mealPlan", day.id), day),
+      );
+    }
+
+    // Teacher records plus their login accounts (users, role teacher).
+    if (teachersSnap.empty) {
+      TEACHERS.forEach((teacher) => {
+        batch.set(doc(firestore, "teachers", teacher.id), teacher);
+        batch.set(doc(firestore, "users", `usr-${teacher.id}`), {
+          id: `usr-${teacher.id}`,
+          email: (teacher.email ?? "").toLowerCase(),
+          password: teacher.password ?? "",
+          fullName: teacher.name,
+          role: "teacher",
+          teacherId: teacher.id,
+        });
+      });
+    }
+
+    // One salary already paid for the current month (tch-2 stays unpaid).
+    if (salarySnap.empty) {
+      const now = new Date();
+      batch.set(doc(firestore, "salaryPayments", "salary-seed-1"), {
+        id: "salary-seed-1",
+        teacherId: "tch-1",
+        amount: 30000,
+        month: monthKey(now),
+        date: now.toISOString(),
+        note: "Monthly salary",
+      });
+    }
 
     await batch.commit();
   } catch {

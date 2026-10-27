@@ -1,70 +1,101 @@
 import { teacherService } from "@/modules/teachers/service";
 import * as Print from "expo-print";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { shareAsync } from "expo-sharing";
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, Platform, StyleSheet, View } from "react-native";
 import {
   Button,
   Card,
+  Chip,
   Dialog,
   List,
   Paragraph,
   Portal,
+  Text,
   TextInput,
 } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
+import { formatMonth, monthKey } from "@/lib/date";
 import { financialService } from "@/modules/financial/service";
-import type { SalaryPayment } from "@/types";
+import type { SalaryPayment, Teacher } from "@/types";
 
 export default function SalaryScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const currentMonth = monthKey();
   const [payments, setPayments] = useState<SalaryPayment[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
-  const [month, setMonth] = useState("");
   const [note, setNote] = useState("");
   const [slipPayment, setSlipPayment] = useState<SalaryPayment | null>(null);
 
-  useEffect(() => {
-    financialService.getSalaryPayments().then(setPayments);
-    teacherService.getAll().then(setTeachers);
+  const loadData = useCallback(async () => {
+    const [teacherList, paymentList] = await Promise.all([
+      teacherService.getAll(),
+      financialService.getSalaryPayments(),
+    ]);
+    setTeachers(teacherList);
+    setPayments(paymentList);
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
+
+  // Teachers whose salary for the current month has already been paid.
+  const paidTeacherIds = useMemo(
+    () =>
+      new Set(
+        payments
+          .filter((payment) => payment.month === currentMonth)
+          .map((payment) => payment.teacherId),
+      ),
+    [payments, currentMonth],
+  );
+
+  const teacherName = (id: string) =>
+    teachers.find((teacher) => teacher.id === id)?.name ?? t("common.noData");
+
+  const selectTeacher = (teacher: Teacher) => {
+    setSelectedTeacher(teacher.id);
+    setAmount(String(teacher.salary ?? 0));
+  };
+
   const handleRecord = async () => {
-    if (!selectedTeacher || !amount || !month) {
-      Alert.alert(
-        t("common.error"),
-        !selectedTeacher
-          ? t("financial.teacherRequired")
-          : !amount
-            ? t("financial.amountRequired")
-            : t("financial.monthRequired"),
-      );
+    if (!selectedTeacher) {
+      Alert.alert(t("common.error"), t("financial.teacherRequired"));
+      return;
+    }
+    if (!amount) {
+      Alert.alert(t("common.error"), t("financial.amountRequired"));
+      return;
+    }
+    if (paidTeacherIds.has(selectedTeacher)) {
+      Alert.alert(t("common.error"), t("financial.salaryAlreadyPaid"));
       return;
     }
 
     const payment = await financialService.recordSalaryPayment({
       teacherId: selectedTeacher,
       amount: Number(amount),
-      month,
+      month: currentMonth,
       date: new Date().toISOString(),
       note: note || undefined,
     });
     setPayments((prev) => [payment, ...prev]);
     setSelectedTeacher(null);
     setAmount("");
-    setMonth("");
     setNote("");
   };
 
   const getSlipHtml = (payment: SalaryPayment) => {
-    const teacher = teachers.find((t) => t.id === payment.teacherId);
-    const teacherName = teacher?.name ?? t("common.noData");
+    const name = teacherName(payment.teacherId);
     const dateTime = new Date(payment.date).toLocaleString();
 
     return `<!DOCTYPE html>
@@ -83,9 +114,9 @@ export default function SalaryScreen() {
         <body>
           <h1>${t("financial.salarySlip")}</h1>
           <table>
-            <tr><td class="label">${t("teachers.name")}</td><td>${teacherName}</td></tr>
+            <tr><td class="label">${t("teachers.name")}</td><td>${name}</td></tr>
             <tr><td class="label">${t("financial.amountRequired")}</td><td>${payment.amount}</td></tr>
-            <tr><td class="label">${t("financial.month")}</td><td>${payment.month}</td></tr>
+            <tr><td class="label">${t("financial.month")}</td><td>${formatMonth(payment.month)}</td></tr>
             <tr><td class="label">${t("common.date")}</td><td>${dateTime}</td></tr>
             <tr><td class="label">${t("financial.note")}</td><td>${payment.note ?? t("common.noData")}</td></tr>
           </table>
@@ -129,29 +160,42 @@ export default function SalaryScreen() {
     >
       <Card mode="elevated" style={styles.card}>
         <Card.Content>
+          <Text variant="titleMedium" style={styles.monthLabel}>
+            {`${t("financial.month")}: ${formatMonth(currentMonth)}`}
+          </Text>
           <TextInput
             label={t("teachers.name")}
-            value={
-              selectedTeacher
-                ? (teachers.find((t) => t.id === selectedTeacher)?.name ?? "")
-                : ""
-            }
+            value={selectedTeacher ? teacherName(selectedTeacher) : ""}
             disabled
             style={styles.input}
           />
           <FlatList
             data={teachers}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <List.Item
-                title={item.name}
-                description={item.subjects?.join(", ")}
-                onPress={() => setSelectedTeacher(item.id)}
-                titleStyle={
-                  selectedTeacher === item.id ? styles.selected : undefined
-                }
-              />
-            )}
+            renderItem={({ item }) => {
+              const paid = paidTeacherIds.has(item.id);
+              return (
+                <List.Item
+                  title={item.name}
+                  description={`${t("financial.salary")}: ${item.salary ?? 0}`}
+                  onPress={() => !paid && selectTeacher(item)}
+                  titleStyle={
+                    selectedTeacher === item.id ? styles.selected : undefined
+                  }
+                  right={() => (
+                    <Chip
+                      mode="outlined"
+                      icon={paid ? "check-circle" : "clock-outline"}
+                      style={styles.chip}
+                    >
+                      {paid
+                        ? t("financial.salaryPaid")
+                        : t("financial.salaryUnpaid")}
+                    </Chip>
+                  )}
+                />
+              );
+            }}
             ItemSeparatorComponent={() => <View style={styles.divider} />}
           />
           <TextInput
@@ -160,13 +204,6 @@ export default function SalaryScreen() {
             onChangeText={setAmount}
             mode="outlined"
             keyboardType="numeric"
-            style={styles.input}
-          />
-          <TextInput
-            label={t("financial.month")}
-            value={month}
-            onChangeText={setMonth}
-            mode="outlined"
             style={styles.input}
           />
           <TextInput
@@ -182,30 +219,26 @@ export default function SalaryScreen() {
           </Button>
         </Card.Content>
       </Card>
+
       <FlatList
         data={payments}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const teacherName =
-            teachers.find((t) => t.id === item.teacherId)?.name ??
-            t("common.noData");
-          return (
-            <List.Item
-              title={`${teacherName} • ${item.month}`}
-              description={`${item.amount} • ${new Date(item.date).toLocaleDateString()}`}
-              right={() => (
-                <Button
-                  compact
-                  mode="text"
-                  onPress={() => openSalarySlip(item)}
-                  style={styles.slipButton}
-                >
-                  {t("financial.generateSalarySlip")}
-                </Button>
-              )}
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <List.Item
+            title={`${teacherName(item.teacherId)} • ${formatMonth(item.month)}`}
+            description={`${item.amount} • ${new Date(item.date).toLocaleDateString()}`}
+            right={() => (
+              <Button
+                compact
+                mode="text"
+                onPress={() => openSalarySlip(item)}
+                style={styles.slipButton}
+              >
+                {t("financial.generateSalarySlip")}
+              </Button>
+            )}
+          />
+        )}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
       />
 
@@ -214,13 +247,13 @@ export default function SalaryScreen() {
           <Dialog.Title>{t("financial.salarySlip")}</Dialog.Title>
           <Dialog.Content>
             <Paragraph>
-              {`${t("teachers.name")}: ${teachers.find((t) => t.id === slipPayment?.teacherId)?.name ?? t("common.noData")}`}
+              {`${t("teachers.name")}: ${teacherName(slipPayment?.teacherId ?? "")}`}
             </Paragraph>
             <Paragraph>
               {`${t("financial.amountRequired")}: ${slipPayment?.amount}`}
             </Paragraph>
             <Paragraph>
-              {`${t("financial.month")}: ${slipPayment?.month}`}
+              {`${t("financial.month")}: ${slipPayment ? formatMonth(slipPayment.month) : ""}`}
             </Paragraph>
             <Paragraph>
               {`${t("common.date")}: ${slipPayment ? new Date(slipPayment.date).toLocaleString() : ""}`}
@@ -243,10 +276,12 @@ export default function SalaryScreen() {
 
 const styles = StyleSheet.create({
   card: { marginBottom: 12 },
+  monthLabel: { marginBottom: 4 },
   input: { marginTop: 12 },
   button: { marginTop: 12 },
   divider: { height: 1, backgroundColor: "#E0E0E0" },
   selected: { fontWeight: "700" },
+  chip: { alignSelf: "center", marginRight: 8 },
   slipButton: {
     alignSelf: "center",
   },

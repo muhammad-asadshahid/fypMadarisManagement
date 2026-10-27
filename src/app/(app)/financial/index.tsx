@@ -14,20 +14,31 @@ import {
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { STUDENTS_WITH_FEE_DUES } from "@/constants/mock-data";
+import { formatMonth, monthKey } from "@/lib/date";
+import { financialService } from "@/modules/financial/service";
 import { studentService } from "@/modules/students/service";
-import type { Student } from "@/types";
+import { teacherService } from "@/modules/teachers/service";
+import type { SalaryPayment, Student, Teacher } from "@/types";
 
 export default function FinancialScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const studentList = await studentService.getAll();
+      const [studentList, teacherList, paymentList] = await Promise.all([
+        studentService.getAll(),
+        teacherService.getAll(),
+        financialService.getSalaryPayments(),
+      ]);
       setStudents(studentList);
+      setTeachers(teacherList);
+      setSalaryPayments(paymentList);
     } finally {
       setLoading(false);
     }
@@ -50,6 +61,21 @@ export default function FinancialScreen() {
 
   const dueCount = feeRecords.filter((record) => record.hasDue).length;
   const clearCount = feeRecords.length - dueCount;
+
+  const currentMonth = monthKey();
+  const salaryStatus = useMemo(
+    () =>
+      teachers.map((teacher) => ({
+        teacher,
+        paid: salaryPayments.some(
+          (payment) =>
+            payment.teacherId === teacher.id && payment.month === currentMonth,
+        ),
+      })),
+    [teachers, salaryPayments, currentMonth],
+  );
+  const unpaidSalaryCount = salaryStatus.filter((row) => !row.paid).length;
+  const paidSalaryCount = salaryStatus.length - unpaidSalaryCount;
 
   return (
     <ScreenWrapper
@@ -109,6 +135,46 @@ export default function FinancialScreen() {
             </Button>
           </View>
 
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {`${t("financial.salary")} • ${formatMonth(currentMonth)}`}
+          </Text>
+          <View style={styles.summaryRow}>
+            <Card mode="elevated" style={styles.summaryCard}>
+              <Card.Content>
+                <Text variant="headlineMedium">{paidSalaryCount}</Text>
+                <Text>{t("financial.salaryPaid")}</Text>
+              </Card.Content>
+            </Card>
+            <Card mode="elevated" style={styles.summaryCard}>
+              <Card.Content>
+                <Text variant="headlineMedium">{unpaidSalaryCount}</Text>
+                <Text>{t("financial.salaryUnpaid")}</Text>
+              </Card.Content>
+            </Card>
+          </View>
+
+          {salaryStatus.map(({ teacher, paid }) => (
+            <List.Item
+              key={teacher.id}
+              title={teacher.name}
+              description={`${t("financial.salary")}: ${teacher.salary ?? 0}`}
+              right={() => (
+                <Chip
+                  style={styles.chip}
+                  mode="outlined"
+                  icon={paid ? "check-circle" : "clock-outline"}
+                >
+                  {paid
+                    ? t("financial.salaryPaid")
+                    : t("financial.salaryUnpaid")}
+                </Chip>
+              )}
+            />
+          ))}
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("financial.fees")}
+          </Text>
           <FlatList
             data={feeRecords}
             keyExtractor={(item) => item.id}
@@ -156,6 +222,10 @@ const styles = StyleSheet.create({
   chip: {
     alignSelf: "center",
     marginRight: 8,
+  },
+  sectionTitle: {
+    marginTop: 16,
+    marginBottom: 8,
   },
   divider: {
     height: 1,

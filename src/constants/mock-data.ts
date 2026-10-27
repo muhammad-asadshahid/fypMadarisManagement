@@ -64,9 +64,9 @@ export const DEMO_USERS: Record<string, { password: string; user: User }> = {
     },
   },
   'teacher@mms.com': {
-    password: 'teacher123',
+    password: '1234',
     user: {
-      id: 'usr-teacher',
+      id: 'usr-tch-1',
       email: 'teacher@mms.com',
       fullName: 'Maulana Abdullah',
       role: 'teacher',
