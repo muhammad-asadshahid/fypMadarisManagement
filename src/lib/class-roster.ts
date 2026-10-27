@@ -1,33 +1,32 @@
 import type { Class, ClassStudent, Student } from "@/types";
 
-/**
- * Recompute a class document's roster from the current student list, so the
- * class record always carries its student count and a light-weight student list
- * (id, name, fatherName).
- */
-export function applyRoster(cls: Class, students: Student[]): Class {
-  const roster = students
-    .filter((student) => student.classId === cls.id)
-    .map<ClassStudent>((student) => ({
+export function rosterForClass(
+  students: Student[],
+  classId: string,
+): ClassStudent[] {
+  return students
+    .filter((student) => student.classId === classId)
+    .map((student) => ({
       id: student.id,
       name: student.name,
       fatherName: student.fatherName,
     }));
-  return { ...cls, studentCount: roster.length, students: roster };
 }
 
-/** Whether a stored roster already matches a freshly computed one. */
+export function applyRoster(cls: Class, students: Student[]): Class {
+  const roster = rosterForClass(students, cls.id);
+  return { ...cls, students: roster, studentCount: roster.length };
+}
+
 export function rosterMatches(
   stored: ClassStudent[] | undefined,
-  next: ClassStudent[],
+  computed: ClassStudent[],
 ): boolean {
-  if (!stored || stored.length !== next.length) return false;
-  const storedById = new Map(stored.map((student) => [student.id, student]));
-  return next.every((student) => {
-    const previous = storedById.get(student.id);
-    return (
-      previous?.name === student.name &&
-      previous?.fatherName === student.fatherName
-    );
-  });
+  if (!stored || stored.length !== computed.length) return false;
+  return stored.every(
+    (entry, index) =>
+      entry.id === computed[index].id &&
+      entry.name === computed[index].name &&
+      entry.fatherName === computed[index].fatherName,
+  );
 }
