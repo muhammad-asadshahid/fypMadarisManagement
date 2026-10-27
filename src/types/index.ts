@@ -24,10 +24,18 @@ export interface User {
   parentStudentIds?: string[];
 }
 
+export interface ClassStudent {
+  id: string;
+  name: string;
+  fatherName: string;
+}
+
 export interface Class {
   id: string;
   name: string;
   programType: ProgramType;
+  studentCount: number;
+  students: ClassStudent[];
 }
 
 export interface ClassWithStudents extends Class {
@@ -146,13 +154,14 @@ export interface SalaryPayment {
   note?: string;
 }
 
-export interface FeeRecord {
+export interface FeePayment {
   id: string;
   studentId: string;
+  /** Month the fee belongs to, formatted "YYYY-MM" (e.g. "2026-10"). */
   month: string;
-  amount: number;
   paid: boolean;
-  date: string;
+  amount: number;
+  paidAt?: string;
   note?: string;
 }
 

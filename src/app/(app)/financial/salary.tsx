@@ -18,14 +18,14 @@ import {
 } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { formatMonth, monthKey } from "@/lib/date";
+import { currentMonthKey, monthLabel } from "@/lib/months";
 import { financialService } from "@/modules/financial/service";
 import type { SalaryPayment, Teacher } from "@/types";
 
 export default function SalaryScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const currentMonth = monthKey();
+  const currentMonth = currentMonthKey();
   const [payments, setPayments] = useState<SalaryPayment[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export default function SalaryScreen() {
           <table>
             <tr><td class="label">${t("teachers.name")}</td><td>${name}</td></tr>
             <tr><td class="label">${t("financial.amountRequired")}</td><td>${payment.amount}</td></tr>
-            <tr><td class="label">${t("financial.month")}</td><td>${formatMonth(payment.month)}</td></tr>
+            <tr><td class="label">${t("financial.month")}</td><td>${monthLabel(payment.month)}</td></tr>
             <tr><td class="label">${t("common.date")}</td><td>${dateTime}</td></tr>
             <tr><td class="label">${t("financial.note")}</td><td>${payment.note ?? t("common.noData")}</td></tr>
           </table>
@@ -161,7 +161,7 @@ export default function SalaryScreen() {
       <Card mode="elevated" style={styles.card}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.monthLabel}>
-            {`${t("financial.month")}: ${formatMonth(currentMonth)}`}
+            {`${t("financial.month")}: ${monthLabel(currentMonth)}`}
           </Text>
           <TextInput
             label={t("teachers.name")}
@@ -225,7 +225,7 @@ export default function SalaryScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <List.Item
-            title={`${teacherName(item.teacherId)} • ${formatMonth(item.month)}`}
+            title={`${teacherName(item.teacherId)} • ${monthLabel(item.month)}`}
             description={`${item.amount} • ${new Date(item.date).toLocaleDateString()}`}
             right={() => (
               <Button
@@ -253,7 +253,7 @@ export default function SalaryScreen() {
               {`${t("financial.amountRequired")}: ${slipPayment?.amount}`}
             </Paragraph>
             <Paragraph>
-              {`${t("financial.month")}: ${slipPayment ? formatMonth(slipPayment.month) : ""}`}
+              {`${t("financial.month")}: ${slipPayment ? monthLabel(slipPayment.month) : ""}`}
             </Paragraph>
             <Paragraph>
               {`${t("common.date")}: ${slipPayment ? new Date(slipPayment.date).toLocaleString() : ""}`}

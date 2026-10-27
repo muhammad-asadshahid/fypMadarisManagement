@@ -14,7 +14,9 @@ import {
     orderBy,
     setDoc,
     updateDoc,
+    where,
 } from "firebase/firestore";
+import { applyRoster, rosterMatches } from "@/lib/class-roster";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
     Class,
@@ -86,6 +88,25 @@ class FirestoreStudentService implements StudentService {
     );
   }
 
+  private async syncClassRoster(classId: string): Promise<void> {
+    if (!classId) return;
+    const classRef = doc(db!, "classes", classId);
+    const [classSnap, studentSnap] = await Promise.all([
+      getDoc(classRef),
+      getDocs(
+        query(collection(db!, "students"), where("classId", "==", classId)),
+      ),
+    ]);
+    if (!classSnap.exists()) return;
+    const cls = classSnap.data() as Class;
+    const students = studentSnap.docs.map((d) => d.data() as Student);
+    const withRoster = applyRoster(cls, students);
+    await updateDoc(classRef, {
+      students: withRoster.students,
+      studentCount: withRoster.studentCount,
+    });
+  }
+
   async create(data: StudentFormData): Promise<Student> {
     const now = new Date().toISOString();
     const id = generateId();
@@ -96,6 +117,7 @@ class FirestoreStudentService implements StudentService {
       updatedAt: now,
     };
     await setDoc(doc(db!, "students", id), student);
+    await this.syncClassRoster(student.classId).catch(() => undefined);
     return student;
   }
 
@@ -103,13 +125,17 @@ class FirestoreStudentService implements StudentService {
     const ref = doc(db!, "students", id);
     const snap = await getDoc(ref);
     if (!snap.exists()) throw new Error("Student not found");
+    const previous = snap.data() as Student;
     const updated: Student = {
-      ...(snap.data() as Student),
+      ...previous,
       ...normalizeName(data),
       id,
       updatedAt: new Date().toISOString(),
     };
     await updateDoc(ref, { ...updated });
+    for (const classId of new Set([previous.classId, updated.classId])) {
+      await this.syncClassRoster(classId).catch(() => undefined);
+    }
     return updated;
   }
 
@@ -118,12 +144,34 @@ class FirestoreStudentService implements StudentService {
   }
 
   async delete(id: string): Promise<void> {
-    await deleteDoc(doc(db!, "students", id));
+    const ref = doc(db!, "students", id);
+    const snap = await getDoc(ref);
+    const classId = snap.exists()
+      ? (snap.data() as Student).classId
+      : undefined;
+    await deleteDoc(ref);
+    if (classId) await this.syncClassRoster(classId).catch(() => undefined);
   }
 
   async getClasses(): Promise<Class[]> {
-    const snapshot = await getDocs(collection(db!, "classes"));
-    return snapshot.docs.map((d) => d.data() as Class);
+    const [classSnapshot, studentSnapshot] = await Promise.all([
+      getDocs(collection(db!, "classes")),
+      getDocs(collection(db!, "students")),
+    ]);
+    const classes = classSnapshot.docs.map((d) => d.data() as Class);
+    const students = studentSnapshot.docs.map((d) => d.data() as Student);
+    return Promise.all(
+      classes.map(async (cls) => {
+        const withRoster = applyRoster(cls, students);
+        if (!rosterMatches(cls.students, withRoster.students)) {
+          await updateDoc(doc(db!, "classes", cls.id), {
+            students: withRoster.students,
+            studentCount: withRoster.studentCount,
+          }).catch(() => undefined);
+        }
+        return withRoster;
+      }),
+    );
   }
 
   async getClassesWithStudents(): Promise<ClassWithStudents[]> {
@@ -205,7 +253,7 @@ class MockStudentService implements StudentService {
   }
 
   async getClasses(): Promise<Class[]> {
-    return MOCK_CLASSES;
+    return MOCK_CLASSES.map((cls) => applyRoster(cls, studentsDb));
   }
 
   async getClassesWithStudents(): Promise<ClassWithStudents[]> {

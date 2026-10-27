@@ -13,36 +13,42 @@ import {
 
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { STUDENTS_WITH_FEE_DUES } from "@/constants/mock-data";
-import { formatMonth, monthKey } from "@/lib/date";
+import { currentMonthKey, monthLabel } from "@/lib/months";
 import { financialService } from "@/modules/financial/service";
 import { studentService } from "@/modules/students/service";
 import { teacherService } from "@/modules/teachers/service";
-import type { SalaryPayment, Student, Teacher } from "@/types";
+import type { FeePayment, SalaryPayment, Student, Teacher } from "@/types";
 
 export default function FinancialScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const month = currentMonthKey();
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
+  const [payments, setPayments] = useState<Record<string, FeePayment>>({});
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentList, teacherList, paymentList] = await Promise.all([
-        studentService.getAll(),
-        teacherService.getAll(),
-        financialService.getSalaryPayments(),
-      ]);
+      const [studentList, teacherList, salaryList, feePayments] =
+        await Promise.all([
+          studentService.getAll(),
+          teacherService.getAll(),
+          financialService.getSalaryPayments(),
+          financialService.getFeePayments(month),
+        ]);
       setStudents(studentList);
       setTeachers(teacherList);
-      setSalaryPayments(paymentList);
+      setSalaryPayments(salaryList);
+      setPayments(
+        Object.fromEntries(feePayments.map((p) => [p.studentId, p])),
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [month]);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,29 +56,28 @@ export default function FinancialScreen() {
     }, [loadData]),
   );
 
-  const feeRecords = useMemo(
+  const feeStatuses = useMemo(
     () =>
       students.map((student) => ({
         ...student,
-        hasDue: STUDENTS_WITH_FEE_DUES.has(student.id),
+        hasDue: !(payments[student.id]?.paid ?? false),
       })),
-    [students],
+    [students, payments],
   );
 
-  const dueCount = feeRecords.filter((record) => record.hasDue).length;
-  const clearCount = feeRecords.length - dueCount;
+  const dueCount = feeStatuses.filter((record) => record.hasDue).length;
+  const clearCount = feeStatuses.length - dueCount;
 
-  const currentMonth = monthKey();
   const salaryStatus = useMemo(
     () =>
       teachers.map((teacher) => ({
         teacher,
         paid: salaryPayments.some(
           (payment) =>
-            payment.teacherId === teacher.id && payment.month === currentMonth,
+            payment.teacherId === teacher.id && payment.month === month,
         ),
       })),
-    [teachers, salaryPayments, currentMonth],
+    [teachers, salaryPayments, month],
   );
   const unpaidSalaryCount = salaryStatus.filter((row) => !row.paid).length;
   const paidSalaryCount = salaryStatus.length - unpaidSalaryCount;
@@ -105,6 +110,9 @@ export default function FinancialScreen() {
         <EmptyState message={t("financial.noRecords")} />
       ) : (
         <>
+          <Text style={styles.monthLabel}>
+            {t("financial.feeStatusFor", { month: monthLabel(month) })}
+          </Text>
           <View style={styles.summaryRow}>
             <Card mode="elevated" style={styles.summaryCard}>
               <Card.Content>
@@ -136,7 +144,7 @@ export default function FinancialScreen() {
           </View>
 
           <Text variant="titleMedium" style={styles.sectionTitle}>
-            {`${t("financial.salary")} • ${formatMonth(currentMonth)}`}
+            {`${t("financial.salary")} • ${monthLabel(month)}`}
           </Text>
           <View style={styles.summaryRow}>
             <Card mode="elevated" style={styles.summaryCard}>
@@ -176,7 +184,7 @@ export default function FinancialScreen() {
             {t("financial.fees")}
           </Text>
           <FlatList
-            data={feeRecords}
+            data={feeStatuses}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <List.Item
@@ -200,6 +208,10 @@ export default function FinancialScreen() {
 const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
+  },
+  monthLabel: {
+    marginBottom: 12,
+    fontWeight: "600",
   },
   buttonsRow: {
     flexDirection: "row",

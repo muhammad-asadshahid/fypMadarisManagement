@@ -2,13 +2,15 @@ import {
     collection,
     doc,
     getDocs,
+    query,
     setDoc,
+    where,
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
     Donation,
     Donor,
-    FeeRecord,
+    FeePayment,
     SalaryPayment,
     ZakatDistribution
 } from "@/types";
@@ -35,13 +37,13 @@ const MOCK_DONATIONS: Donation[] = [
 
 const MOCK_ZAKAT: ZakatDistribution[] = [];
 const MOCK_SALARY_PAYMENTS: SalaryPayment[] = [];
-const MOCK_FEE_RECORDS: FeeRecord[] = [];
+const MOCK_FEE_PAYMENTS: FeePayment[] = [];
 
 let donorsDb = [...MOCK_DONORS];
 let donationsDb = [...MOCK_DONATIONS];
 let zakatDb = [...MOCK_ZAKAT];
 let salaryDb = [...MOCK_SALARY_PAYMENTS];
-let feeDb = [...MOCK_FEE_RECORDS];
+let feeDb = [...MOCK_FEE_PAYMENTS];
 
 export interface FinancialService {
   getDonors(): Promise<Donor[]>;
@@ -56,8 +58,14 @@ export interface FinancialService {
   recordSalaryPayment(
     payment: Omit<SalaryPayment, "id">,
   ): Promise<SalaryPayment>;
-  getFeeRecords(): Promise<FeeRecord[]>;
-  recordFee(fee: Omit<FeeRecord, "id">): Promise<FeeRecord>;
+  getFeePayments(month?: string): Promise<FeePayment[]>;
+  setFeePayment(
+    studentId: string,
+    month: string,
+    paid: boolean,
+    amount?: number,
+    note?: string,
+  ): Promise<FeePayment>;
 }
 
 class FirestoreFinancialService implements FinancialService {
@@ -116,14 +124,32 @@ class FirestoreFinancialService implements FinancialService {
     return record;
   }
 
-  async getFeeRecords(): Promise<FeeRecord[]> {
-    const snapshot = await getDocs(this.col("feeRecords"));
-    return snapshot.docs.map((d) => d.data() as FeeRecord);
+  async getFeePayments(month?: string): Promise<FeePayment[]> {
+    const base = this.col("feePayments");
+    const snapshot = month
+      ? await getDocs(query(base, where("month", "==", month)))
+      : await getDocs(base);
+    return snapshot.docs.map((d) => d.data() as FeePayment);
   }
 
-  async recordFee(fee: Omit<FeeRecord, "id">): Promise<FeeRecord> {
-    const record: FeeRecord = { id: `fee-${Date.now()}`, ...fee };
-    await setDoc(doc(db!, "feeRecords", record.id), record);
+  async setFeePayment(
+    studentId: string,
+    month: string,
+    paid: boolean,
+    amount = 0,
+    note?: string,
+  ): Promise<FeePayment> {
+    const id = `${studentId}__${month}`;
+    const record: FeePayment = {
+      id,
+      studentId,
+      month,
+      paid,
+      amount: paid ? amount : 0,
+      ...(paid ? { paidAt: new Date().toISOString() } : {}),
+      ...(note ? { note } : {}),
+    };
+    await setDoc(doc(db!, "feePayments", id), record);
     return record;
   }
 }
@@ -176,13 +202,28 @@ class MockFinancialService implements FinancialService {
     return record;
   }
 
-  async getFeeRecords(): Promise<FeeRecord[]> {
-    return [...feeDb];
+  async getFeePayments(month?: string): Promise<FeePayment[]> {
+    return month ? feeDb.filter((f) => f.month === month) : [...feeDb];
   }
 
-  async recordFee(fee: Omit<FeeRecord, "id">): Promise<FeeRecord> {
-    const record: FeeRecord = { id: `fee-${Date.now()}`, ...fee };
-    feeDb = [record, ...feeDb];
+  async setFeePayment(
+    studentId: string,
+    month: string,
+    paid: boolean,
+    amount = 0,
+    note?: string,
+  ): Promise<FeePayment> {
+    const id = `${studentId}__${month}`;
+    const record: FeePayment = {
+      id,
+      studentId,
+      month,
+      paid,
+      amount: paid ? amount : 0,
+      ...(paid ? { paidAt: new Date().toISOString() } : {}),
+      ...(note ? { note } : {}),
+    };
+    feeDb = [record, ...feeDb.filter((f) => f.id !== id)];
     return record;
   }
 }
