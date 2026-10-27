@@ -44,7 +44,7 @@ class FirestoreReportsService implements ReportsService {
       const [donationSnap, feeSnap, salarySnap, hostelSnap] =
         await Promise.all([
           getDocs(collection(db!, "donations")),
-          getDocs(collection(db!, "feeRecords")),
+          getDocs(collection(db!, "feePayments")),
           getDocs(collection(db!, "salaryPayments")),
           getDocs(collection(db!, "hostelAllocations")),
         ]);
@@ -96,7 +96,7 @@ class FirestoreReportsService implements ReportsService {
     let collected = 0;
     let pending = 0;
     try {
-      const snap = await getDocs(collection(db!, "feeRecords"));
+      const snap = await getDocs(collection(db!, "feePayments"));
       snap.docs.forEach((d) => {
         const data = d.data();
         const amount = Number(data.amount ?? 0);

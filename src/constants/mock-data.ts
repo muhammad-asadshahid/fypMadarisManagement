@@ -1,12 +1,5 @@
+import { applyRoster } from '@/lib/class-roster';
 import type { Class, Student, User } from '@/types';
-
-export const MOCK_CLASSES: Class[] = [
-  { id: 'cls-1', name: 'Hifz Class A', programType: 'hifz_ul_quran' },
-  { id: 'cls-2', name: 'Nazra Class B', programType: 'nazra_quran' },
-  { id: 'cls-3', name: 'Dars-e-Nizami Year 1', programType: 'dars_e_nizami' },
-  { id: 'cls-4', name: 'Asri Taleem Grade 5', programType: 'asri_taleem' },
-  { id: 'cls-5', name: 'Noorani Qaida Beginners', programType: 'noorani_qaida' },
-];
 
 export const MOCK_STUDENTS: Student[] = [
   {
@@ -52,6 +45,18 @@ export const MOCK_STUDENTS: Student[] = [
     updatedAt: '2023-09-15T08:00:00Z',
   },
 ];
+
+const MOCK_CLASS_BASE: Class[] = [
+  { id: 'cls-1', name: 'Hifz Class A', programType: 'hifz_ul_quran', studentCount: 0, students: [] },
+  { id: 'cls-2', name: 'Nazra Class B', programType: 'nazra_quran', studentCount: 0, students: [] },
+  { id: 'cls-3', name: 'Dars-e-Nizami Year 1', programType: 'dars_e_nizami', studentCount: 0, students: [] },
+  { id: 'cls-4', name: 'Asri Taleem Grade 5', programType: 'asri_taleem', studentCount: 0, students: [] },
+  { id: 'cls-5', name: 'Noorani Qaida Beginners', programType: 'noorani_qaida', studentCount: 0, students: [] },
+];
+
+export const MOCK_CLASSES: Class[] = MOCK_CLASS_BASE.map((cls) =>
+  applyRoster(cls, MOCK_STUDENTS),
+);
 
 export const DEMO_USERS: Record<string, { password: string; user: User }> = {
   'admin@mms.com': {

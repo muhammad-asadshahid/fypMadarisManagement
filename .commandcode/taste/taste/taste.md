@@ -11,4 +11,6 @@
 - Prefers DB-related work be completed "asap" (prioritizes speed of completing the connection/data layer). Confidence: 0.4
 - Prefers to defer out-of-scope/low-priority features to a later phase (e.g. leave a form field until admin-side management is built later) rather than implement them in the current sprint. Keeps each work session focused on a single priority feature. Confidence: 0.4
 - When a feature is finished, wants a short direct confirmation of completion ("just tell me") rather than a detailed walkthrough/report of everything done. Confidence: 0.4
+- When a new piece of information is surfaced in the UI (e.g. the paid month on a fee), expects the corresponding field to also be added/persisted in the database — "keep in mind to also add that field ... in the db"; the data model should not lag behind the UI. Confidence: 0.5
+- When asking for a recap of work completed, wants it as a condensed bullet-point list of tasks performed rather than a prose narrative. Confidence: 0.5
 - Values keeping related database collections' (e.g. registrations vs students) field schemas identical/consistent so records can be cleanly moved between tables and are "easy to manage" — explicitly asks to align/merge schemas across tables before adding features. Confidence: 0.6

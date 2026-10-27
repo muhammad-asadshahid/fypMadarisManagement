@@ -1,45 +1,106 @@
-import { studentService } from "@/modules/students/service";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, StyleSheet, View } from "react-native";
-import { Button, Card, List, TextInput } from "react-native-paper";
+import { Alert, FlatList, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Button,
+  Card,
+  Chip,
+  Dialog,
+  List,
+  Portal,
+  Text,
+  TextInput,
+} from "react-native-paper";
 
+import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
+import { currentMonthKey, monthLabel } from "@/lib/months";
 import { financialService } from "@/modules/financial/service";
-import type { FeeRecord } from "@/types";
+import { studentService } from "@/modules/students/service";
+import type { FeePayment, Student } from "@/types";
 
 export default function FeesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [fees, setFees] = useState<FeeRecord[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const month = currentMonthKey();
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<Record<string, FeePayment>>({});
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Student | null>(null);
   const [amount, setAmount] = useState("");
-  const [month, setMonth] = useState("");
   const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    financialService.getFeeRecords().then(setFees);
-    studentService.getAll().then(setStudents);
-  }, []);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [studentList, feePayments] = await Promise.all([
+        studentService.getAll(),
+        financialService.getFeePayments(month),
+      ]);
+      setStudents(studentList);
+      setPayments(
+        Object.fromEntries(feePayments.map((p) => [p.studentId, p])),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [month]);
 
-  const handleRecord = async () => {
-    if (!selectedStudent || !amount || !month) return;
-    const fee = await financialService.recordFee({
-      studentId: selectedStudent,
-      month,
-      amount: Number(amount),
-      paid: true,
-      date: new Date().toISOString(),
-      note: note || undefined,
-    });
-    setFees((prev) => [fee, ...prev]);
-    setSelectedStudent(null);
-    setAmount("");
-    setMonth("");
-    setNote("");
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
+
+  const openMarkPaid = (student: Student) => {
+    const existing = payments[student.id];
+    setAmount(existing?.amount ? String(existing.amount) : "");
+    setNote(existing?.note ?? "");
+    setEditing(student);
   };
+
+  const confirmPaid = async () => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const saved = await financialService.setFeePayment(
+        editing.id,
+        month,
+        true,
+        Number(amount) || 0,
+        note.trim() || undefined,
+      );
+      setPayments((prev) => ({ ...prev, [editing.id]: saved }));
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const markUnpaid = (student: Student) => {
+    Alert.alert(t("financial.markUnpaid"), student.name, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.confirm"),
+        style: "destructive",
+        onPress: async () => {
+          const saved = await financialService.setFeePayment(
+            student.id,
+            month,
+            false,
+          );
+          setPayments((prev) => ({ ...prev, [student.id]: saved }));
+        },
+      },
+    ]);
+  };
+
+  const paidCount = students.filter((s) => payments[s.id]?.paid).length;
+  const pendingCount = students.length - paidCount;
 
   return (
     <ScreenWrapper
@@ -55,83 +116,111 @@ export default function FeesScreen() {
     >
       <Card mode="elevated" style={styles.card}>
         <Card.Content>
-          <TextInput
-            label={t("students.name")}
-            value={
-              selectedStudent
-                ? (students.find((s) => s.id === selectedStudent)?.name ?? "")
-                : ""
-            }
-            disabled
-            style={styles.input}
-          />
-          <FlatList
-            data={students}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
+          <Text variant="titleMedium">
+            {t("financial.feeStatusFor", { month: monthLabel(month) })}
+          </Text>
+          <View style={styles.summaryRow}>
+            <Text>{`${t("financial.paid")}: ${paidCount}`}</Text>
+            <Text>{`${t("financial.pending")}: ${pendingCount}`}</Text>
+          </View>
+        </Card.Content>
+      </Card>
+
+      {loading ? (
+        <ActivityIndicator style={styles.loader} />
+      ) : students.length === 0 ? (
+        <EmptyState message={t("common.noData")} />
+      ) : (
+        <FlatList
+          data={students}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const payment = payments[item.id];
+            const isPaid = payment?.paid ?? false;
+            return (
               <List.Item
                 title={item.name}
                 description={item.fatherName}
-                onPress={() => setSelectedStudent(item.id)}
-                titleStyle={
-                  selectedStudent === item.id ? styles.selected : undefined
-                }
+                right={() => (
+                  <View style={styles.rowRight}>
+                    {isPaid && payment?.amount ? (
+                      <Text style={styles.amount}>{payment.amount}</Text>
+                    ) : null}
+                    <Chip
+                      mode={isPaid ? "flat" : "outlined"}
+                      onPress={() =>
+                        isPaid ? markUnpaid(item) : openMarkPaid(item)
+                      }
+                    >
+                      {isPaid ? t("financial.paid") : t("financial.pending")}
+                    </Chip>
+                  </View>
+                )}
               />
-            )}
-            ItemSeparatorComponent={() => <View style={styles.divider} />}
-          />
-          <TextInput
-            label={t("financial.amountRequired")}
-            value={amount}
-            onChangeText={setAmount}
-            mode="outlined"
-            keyboardType="numeric"
-            style={styles.input}
-          />
-          <TextInput
-            label={t("financial.month")}
-            value={month}
-            onChangeText={setMonth}
-            mode="outlined"
-            style={styles.input}
-          />
-          <TextInput
-            label={t("financial.note")}
-            value={note}
-            onChangeText={setNote}
-            mode="outlined"
-            multiline
-            style={styles.input}
-          />
-          <Button mode="contained" onPress={handleRecord} style={styles.button}>
-            {t("financial.recordFee")}
-          </Button>
-        </Card.Content>
-      </Card>
-      <FlatList
-        data={fees}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const studentName =
-            students.find((s) => s.id === item.studentId)?.name ??
-            t("common.noData");
-          return (
-            <List.Item
-              title={`${studentName} • ${item.month}`}
-              description={`${item.amount} • ${item.paid ? t("financial.paid") : t("financial.pending")} • ${new Date(item.date).toLocaleDateString()}`}
+            );
+          }}
+          ItemSeparatorComponent={() => <View style={styles.divider} />}
+        />
+      )}
+
+      <Portal>
+        <Dialog visible={!!editing} onDismiss={() => setEditing(null)}>
+          <Dialog.Title>{t("financial.recordFee")}</Dialog.Title>
+          <Dialog.Content>
+            <Text style={styles.dialogSubtitle}>
+              {`${editing?.name ?? ""} — ${monthLabel(month)}`}
+            </Text>
+            <TextInput
+              label={t("financial.amount")}
+              value={amount}
+              onChangeText={setAmount}
+              mode="outlined"
+              keyboardType="numeric"
+              style={styles.dialogInput}
             />
-          );
-        }}
-        ItemSeparatorComponent={() => <View style={styles.divider} />}
-      />
+            <TextInput
+              label={t("financial.note")}
+              value={note}
+              onChangeText={setNote}
+              mode="outlined"
+              style={styles.dialogInput}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setEditing(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onPress={confirmPaid} loading={saving}>
+              {t("common.save")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   card: { marginBottom: 12 },
-  input: { marginTop: 12 },
-  button: { marginTop: 12 },
+  loader: { marginTop: 48 },
   divider: { height: 1, backgroundColor: "#E0E0E0" },
-  selected: { fontWeight: "700" },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 8,
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  amount: {
+    fontWeight: "600",
+  },
+  dialogSubtitle: {
+    marginBottom: 12,
+  },
+  dialogInput: {
+    marginTop: 8,
+  },
 });

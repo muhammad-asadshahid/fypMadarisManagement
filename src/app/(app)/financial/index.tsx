@@ -13,25 +13,34 @@ import {
 
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { STUDENTS_WITH_FEE_DUES } from "@/constants/mock-data";
+import { currentMonthKey, monthLabel } from "@/lib/months";
+import { financialService } from "@/modules/financial/service";
 import { studentService } from "@/modules/students/service";
-import type { Student } from "@/types";
+import type { FeePayment, Student } from "@/types";
 
 export default function FinancialScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const month = currentMonthKey();
   const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<Record<string, FeePayment>>({});
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const studentList = await studentService.getAll();
+      const [studentList, feePayments] = await Promise.all([
+        studentService.getAll(),
+        financialService.getFeePayments(month),
+      ]);
       setStudents(studentList);
+      setPayments(
+        Object.fromEntries(feePayments.map((p) => [p.studentId, p])),
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [month]);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,17 +48,17 @@ export default function FinancialScreen() {
     }, [loadData]),
   );
 
-  const feeRecords = useMemo(
+  const feeStatuses = useMemo(
     () =>
       students.map((student) => ({
         ...student,
-        hasDue: STUDENTS_WITH_FEE_DUES.has(student.id),
+        hasDue: !(payments[student.id]?.paid ?? false),
       })),
-    [students],
+    [students, payments],
   );
 
-  const dueCount = feeRecords.filter((record) => record.hasDue).length;
-  const clearCount = feeRecords.length - dueCount;
+  const dueCount = feeStatuses.filter((record) => record.hasDue).length;
+  const clearCount = feeStatuses.length - dueCount;
 
   return (
     <ScreenWrapper
@@ -79,6 +88,9 @@ export default function FinancialScreen() {
         <EmptyState message={t("financial.noRecords")} />
       ) : (
         <>
+          <Text style={styles.monthLabel}>
+            {t("financial.feeStatusFor", { month: monthLabel(month) })}
+          </Text>
           <View style={styles.summaryRow}>
             <Card mode="elevated" style={styles.summaryCard}>
               <Card.Content>
@@ -110,7 +122,7 @@ export default function FinancialScreen() {
           </View>
 
           <FlatList
-            data={feeRecords}
+            data={feeStatuses}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <List.Item
@@ -134,6 +146,10 @@ export default function FinancialScreen() {
 const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
+  },
+  monthLabel: {
+    marginBottom: 12,
+    fontWeight: "600",
   },
   buttonsRow: {
     flexDirection: "row",

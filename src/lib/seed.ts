@@ -1,7 +1,10 @@
 import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
+import { applyRoster } from "@/lib/class-roster";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
   Class,
+  Donation,
+  Donor,
   Registration,
   Student,
   User,
@@ -11,12 +14,12 @@ import type {
   AttendanceRecord,
 } from "@/types";
 
-const CLASSES: Class[] = [
-  { id: "cls-1", name: "Hifz Class A", programType: "hifz_ul_quran" },
-  { id: "cls-2", name: "Nazra Class B", programType: "nazra_quran" },
-  { id: "cls-3", name: "Dars-e-Nizami Year 1", programType: "dars_e_nizami" },
-  { id: "cls-4", name: "Asri Taleem Grade 5", programType: "asri_taleem" },
-  { id: "cls-5", name: "Noorani Qaida Beginners", programType: "noorani_qaida" },
+const CLASSES_BASE: Class[] = [
+  { id: "cls-1", name: "Hifz Class A", programType: "hifz_ul_quran", studentCount: 0, students: [] },
+  { id: "cls-2", name: "Nazra Class B", programType: "nazra_quran", studentCount: 0, students: [] },
+  { id: "cls-3", name: "Dars-e-Nizami Year 1", programType: "dars_e_nizami", studentCount: 0, students: [] },
+  { id: "cls-4", name: "Asri Taleem Grade 5", programType: "asri_taleem", studentCount: 0, students: [] },
+  { id: "cls-5", name: "Noorani Qaida Beginners", programType: "noorani_qaida", studentCount: 0, students: [] },
 ];
 
 const USERS: User[] = [
@@ -93,6 +96,8 @@ const STUDENTS: Student[] = [
   },
 ];
 
+const CLASSES: Class[] = CLASSES_BASE.map((cls) => applyRoster(cls, STUDENTS));
+
 const REGISTRATIONS: Registration[] = [
   {
     id: "reg-1",
@@ -126,11 +131,87 @@ const REGISTRATIONS: Registration[] = [
   },
 ];
 
+const DONORS: Donor[] = [
+  {
+    id: "donor-1",
+    name: "Ahsan Khan",
+    contactNumber: "03010001122",
+    category: "General",
+  },
+  {
+    id: "donor-2",
+    name: "Fatima Welfare Trust",
+    contactNumber: "03451234567",
+    category: "Zakat",
+  },
+  {
+    id: "donor-3",
+    name: "Bilal Traders",
+    contactNumber: "03219876543",
+    category: "Nafal",
+  },
+];
+
+const DONATIONS: Donation[] = [
+  {
+    id: "donation-1",
+    donorId: "donor-1",
+    amount: 15000,
+    category: "Zakat",
+    month: "Ramadan 2026",
+    date: "2026-03-15T10:00:00.000Z",
+    note: "Ramadan donation",
+  },
+  {
+    id: "donation-2",
+    donorId: "donor-2",
+    amount: 50000,
+    category: "Fitrana",
+    month: "Ramadan 2026",
+    date: "2026-03-20T10:00:00.000Z",
+    note: "Fitrana for 10 families",
+  },
+  {
+    id: "donation-3",
+    donorId: "donor-1",
+    amount: 25000,
+    category: "Nafal",
+    month: "Muharram 2026",
+    date: "2026-07-05T10:00:00.000Z",
+    note: "Sadaqah",
+  },
+  {
+    id: "donation-4",
+    donorId: "donor-3",
+    amount: 100000,
+    category: "Other",
+    month: "General 2026",
+    date: "2026-05-01T10:00:00.000Z",
+    note: "Building fund",
+  },
+];
+
 export async function seedIfEmpty(): Promise<void> {
   const firestore = db;
   if (!FIREBASE_CONFIGURED || !firestore) return;
 
   try {
+    // Donations/donors seed independently so a database that is already
+    // seeded with classes still gets the financial tables created.
+    const donationSnapshot = await getDocs(
+      collection(firestore, "donations"),
+    );
+    if (donationSnapshot.empty) {
+      const donationBatch = writeBatch(firestore);
+      DONORS.forEach((d) =>
+        donationBatch.set(doc(firestore, "donors", d.id), d),
+      );
+      DONATIONS.forEach((d) =>
+        donationBatch.set(doc(firestore, "donations", d.id), d),
+      );
+      await donationBatch.commit();
+    }
+
     const snapshot = await getDocs(collection(firestore, "classes"));
     if (!snapshot.empty) return;
 

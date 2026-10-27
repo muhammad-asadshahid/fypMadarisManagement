@@ -169,6 +169,9 @@
     "printSave": "Print / Save",
     "teacherRequired": "Please select a teacher",
     "month": "Month",
+    "feeStatusFor": "Fee status for {{month}}",
+    "markUnpaid": "Mark as unpaid",
+    "amount": "Amount",
     "studentRequired": "Please select a student"
   },
   "teachers": {

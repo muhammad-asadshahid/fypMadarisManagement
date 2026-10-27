@@ -143,6 +143,9 @@
     "printSave": "پرنٹ / محفوظ کریں",
     "teacherRequired": "براہ کرم استاد منتخب کریں",
     "month": "مہینہ",
+    "feeStatusFor": "{{month}} کی فیس کی صورتحال",
+    "markUnpaid": "غیر ادا شدہ نشان زد کریں",
+    "amount": "رقم",
     "studentRequired": "براہ کرم طالب علم منتخب کریں"
   },
   "teachers": {
