@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, type Firestore } from "firebase/firestore";
 
 const config = {
   apiKey:
@@ -49,7 +49,9 @@ export function getDb(): Firestore | null {
   if (_db) return _db;
   const app = getFirebaseApp();
   if (!app) return null;
-  _db = getFirestore(app);
+  // ignoreUndefinedProperties keeps optional fields (e.g. grade, photoUri) from
+  // throwing "Unsupported field value: undefined" on partial updates.
+  _db = initializeFirestore(app, { ignoreUndefinedProperties: true });
   return _db;
 }
 

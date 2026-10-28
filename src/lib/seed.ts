@@ -7,9 +7,13 @@ import type {
   Donor,
   Registration,
   Student,
+  Subject,
+  Teacher,
   User,
+  LessonLog,
   HifzRecord,
   NazraRecord,
+  MarksRecord,
   DarsProgressRecord,
   AttendanceRecord,
 } from "@/types";
@@ -18,8 +22,27 @@ const CLASSES_BASE: Class[] = [
   { id: "cls-1", name: "Hifz Class A", programType: "hifz_ul_quran", studentCount: 0, students: [] },
   { id: "cls-2", name: "Nazra Class B", programType: "nazra_quran", studentCount: 0, students: [] },
   { id: "cls-3", name: "Dars-e-Nizami Year 1", programType: "dars_e_nizami", studentCount: 0, students: [] },
-  { id: "cls-4", name: "Asri Taleem Grade 5", programType: "asri_taleem", studentCount: 0, students: [] },
+  { id: "cls-4", name: "Asri Taleem", programType: "asri_taleem", studentCount: 0, students: [] },
   { id: "cls-5", name: "Noorani Qaida Beginners", programType: "noorani_qaida", studentCount: 0, students: [] },
+];
+
+const ASRI_SUBJECTS: Subject[] = ["English", "Math", "Science", "Computer"].map(
+  (name) => ({
+    id: `asri-sub-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    name,
+    programType: "asri_taleem" as const,
+  }),
+);
+
+const TEACHERS: Teacher[] = [
+  {
+    id: "tch-1",
+    name: "Maulana Abdullah",
+    subjects: ["Hifz", "Asri Taleem"],
+    contactNumber: "0300111222",
+    salary: 30000,
+    classIds: ["cls-1", "cls-4"],
+  },
 ];
 
 const USERS: User[] = [
@@ -93,6 +116,36 @@ const STUDENTS: Student[] = [
     hostelStatus: true,
     createdAt: "2023-09-15T08:00:00Z",
     updatedAt: "2023-09-15T08:00:00Z",
+  },
+  {
+    id: "stu-4",
+    name: "Bilal Hassan",
+    fatherName: "Hassan Ali",
+    dateOfBirth: "2016-02-11",
+    address: "Street 7, Lahore",
+    contactNumber: "03005556677",
+    admissionDate: "2025-04-01",
+    programType: "asri_taleem",
+    classId: "cls-4",
+    hostelStatus: false,
+    grade: 1,
+    createdAt: "2025-04-01T08:00:00Z",
+    updatedAt: "2025-04-01T08:00:00Z",
+  },
+  {
+    id: "stu-5",
+    name: "Zainab Fatima",
+    fatherName: "Ali Raza",
+    dateOfBirth: "2015-07-19",
+    address: "Block C, Rawalpindi",
+    contactNumber: "03009998877",
+    admissionDate: "2025-04-01",
+    programType: "asri_taleem",
+    classId: "cls-4",
+    hostelStatus: false,
+    grade: 2,
+    createdAt: "2025-04-01T08:00:00Z",
+    updatedAt: "2025-04-01T08:00:00Z",
   },
 ];
 
@@ -221,6 +274,10 @@ export async function seedIfEmpty(): Promise<void> {
       batch.set(doc(firestore, "classes", c.id), c);
     });
 
+    TEACHERS.forEach((teacher) => {
+      batch.set(doc(firestore, "teachers", teacher.id), teacher);
+    });
+
     USERS.forEach((u) => {
       batch.set(doc(firestore, "users", u.id), {
         ...u,
@@ -245,28 +302,70 @@ export async function seedIfEmpty(): Promise<void> {
       { id: "kitab-tafsir", name: "Tafsir", totalChapters: 15 },
     ].forEach((k) => batch.set(doc(firestore, "kitab", k.id), k));
 
-    [
-      { id: "sub-urdu", name: "Urdu", programType: "asri_taleem" },
-      { id: "sub-english", name: "English", programType: "asri_taleem" },
-      { id: "sub-mathematics", name: "Mathematics", programType: "asri_taleem" },
-      { id: "sub-science", name: "Science", programType: "asri_taleem" },
-      { id: "sub-islamiyat", name: "Islamiyat", programType: "asri_taleem" },
-    ].forEach((s) => batch.set(doc(firestore, "subjects", s.id), s));
+    ASRI_SUBJECTS.forEach((s) =>
+      batch.set(doc(firestore, "subjects", s.id), s),
+    );
 
     // Per-student progress records so every module screens show real data.
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const teacherId = "tch-1";
 
+    const lessonLogDemo: Omit<LessonLog, "id">[] = [
+      {
+        classId: "cls-1",
+        programType: "hifz_ul_quran",
+        date: today,
+        sabaqJuz: 2,
+        sabaqSurah: "Al-Baqarah",
+        sabaqAyahStart: 61,
+        sabaqAyahEnd: 65,
+        sabaqPages: 1,
+        sabaqiDate: today,
+        sabaqiSurah: "Al-Fatihah",
+        sabaqiAyahStart: 1,
+        sabaqiAyahEnd: 7,
+        sabaqiNotes: "Strong recall",
+        manzilJuz: 1,
+        manzilSurah: "Al-Baqarah",
+        manzilAyahStart: 1,
+        manzilAyahEnd: 20,
+        teacherId,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        classId: "cls-2",
+        programType: "nazra_quran",
+        date: today,
+        sabaqJuz: 1,
+        sabaqSurah: "Al-Baqarah",
+        sabaqAyahStart: 1,
+        sabaqAyahEnd: 5,
+        sabaqPages: 1,
+        sabaqiDate: today,
+        sabaqiSurah: "Al-Fatihah",
+        sabaqiAyahStart: 1,
+        sabaqiAyahEnd: 7,
+        sabaqiNotes: "Needs tajweed practice",
+        manzilJuz: 1,
+        manzilSurah: "An-Nas",
+        manzilAyahStart: 1,
+        manzilAyahEnd: 6,
+        teacherId,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+    ];
+
     const hifzDemo: Omit<HifzRecord, "id">[] = [
       {
         studentId: "stu-1",
+        classId: "cls-1",
+        lessonId: `ll-cls-1-${today}`,
         date: today,
-        sabaq: "Surah 2 v61-65",
-        sabaqi: "Surah 1",
-        manzil: "Manzil 1",
         mistakeCount: 2,
-        grade: "jayyid",
+        grade: "jayyid_jiddan",
         teacherId,
         note: "Good pace",
         createdAt: now.toISOString(),
@@ -276,15 +375,25 @@ export async function seedIfEmpty(): Promise<void> {
     const nazraDemo: Omit<NazraRecord, "id">[] = [
       {
         studentId: "stu-2",
+        classId: "cls-2",
+        lessonId: `ll-cls-2-${today}`,
         date: today,
-        pageFrom: 4,
-        pageTo: 6,
-        fluency: 78,
+        pageNumber: 5,
+        lessonCompletion: 12,
+        fluencyLevel: 78,
+        pronunciationErrors: 3,
         remarks: "Clear tajweed",
-        completionPercentage: 12,
         teacherId,
         createdAt: now.toISOString(),
       },
+    ];
+
+    const marksDemo: Omit<MarksRecord, "id">[] = [
+      { studentId: "stu-4", subjectId: "asri-sub-english", marksObtained: 85, teacherId, date: now.toISOString(), updatedAt: now.toISOString() },
+      { studentId: "stu-4", subjectId: "asri-sub-computer", marksObtained: 78, teacherId, date: now.toISOString(), updatedAt: now.toISOString() },
+      { studentId: "stu-4", subjectId: "asri-sub-math", marksObtained: 92, teacherId, date: now.toISOString(), updatedAt: now.toISOString() },
+      { studentId: "stu-4", subjectId: "asri-sub-science", marksObtained: 88, teacherId, date: now.toISOString(), updatedAt: now.toISOString() },
+      { studentId: "stu-5", subjectId: "asri-sub-english", marksObtained: 74, teacherId, date: now.toISOString(), updatedAt: now.toISOString() },
     ];
 
     const darsDemo: Omit<DarsProgressRecord, "id">[] = [
@@ -301,11 +410,20 @@ export async function seedIfEmpty(): Promise<void> {
       },
     ];
 
-    hifzDemo.forEach((r, i) =>
-      batch.set(doc(firestore, "hifzRecords", `hifz-seed-${i + 1}`), r),
+    lessonLogDemo.forEach((r) =>
+      batch.set(doc(firestore, "lessonLogs", `ll-${r.classId}-${r.date}`), r),
     );
-    nazraDemo.forEach((r, i) =>
-      batch.set(doc(firestore, "nazraRecords", `nazra-seed-${i + 1}`), r),
+    hifzDemo.forEach((r) =>
+      batch.set(doc(firestore, "hifzRecords", `hifz-${r.studentId}-${r.date}`), r),
+    );
+    nazraDemo.forEach((r) =>
+      batch.set(doc(firestore, "nazraRecords", `nazra-${r.studentId}-${r.date}`), r),
+    );
+    marksDemo.forEach((r) =>
+      batch.set(
+        doc(firestore, "marksRecords", `marks-${r.studentId}-${r.subjectId}`),
+        r,
+      ),
     );
     darsDemo.forEach((r, i) =>
       batch.set(
