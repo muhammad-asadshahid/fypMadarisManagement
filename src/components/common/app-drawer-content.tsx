@@ -22,6 +22,12 @@ export function AppDrawerContent(props: any) {
     router.replace("/(auth)/login");
   };
 
+  // `index` maps to the `/(app)` root; every other item has its own path.
+  const navigate = (name: string) => {
+    const href = name === "index" ? "/(app)" : `/(app)/${name}`;
+    router.push(href as never);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -53,7 +59,7 @@ export function AppDrawerContent(props: any) {
             label={t(item.labelKey)}
             icon={item.icon}
             active={props.state?.routes[props.state.index]?.name === item.name}
-            onPress={() => router.push(`/(app)/${item.name}` as never)}
+            onPress={() => navigate(item.name)}
           />
         ))}
       </Drawer.Section>

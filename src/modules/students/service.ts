@@ -107,6 +107,20 @@ class FirestoreStudentService implements StudentService {
     });
   }
 
+  // Mirror the student into the `users` collection as a parent login, so every
+  // student can sign in with their guardian email + PIN.
+  private async syncUser(student: Student): Promise<void> {
+    if (!student.email || !student.password) return;
+    await setDoc(doc(db!, "users", `usr-${student.id}`), {
+      id: `usr-${student.id}`,
+      email: student.email.toLowerCase(),
+      password: student.password,
+      fullName: student.name,
+      role: "parent",
+      parentStudentIds: [student.id],
+    });
+  }
+
   async create(data: StudentFormData): Promise<Student> {
     const now = new Date().toISOString();
     const id = generateId();
@@ -118,6 +132,7 @@ class FirestoreStudentService implements StudentService {
     };
     await setDoc(doc(db!, "students", id), student);
     await this.syncClassRoster(student.classId).catch(() => undefined);
+    await this.syncUser(student).catch(() => undefined);
     return student;
   }
 
@@ -136,6 +151,7 @@ class FirestoreStudentService implements StudentService {
     for (const classId of new Set([previous.classId, updated.classId])) {
       await this.syncClassRoster(classId).catch(() => undefined);
     }
+    await this.syncUser(updated).catch(() => undefined);
     return updated;
   }
 
@@ -150,6 +166,7 @@ class FirestoreStudentService implements StudentService {
       ? (snap.data() as Student).classId
       : undefined;
     await deleteDoc(ref);
+    await deleteDoc(doc(db!, "users", `usr-${id}`)).catch(() => undefined);
     if (classId) await this.syncClassRoster(classId).catch(() => undefined);
   }
 

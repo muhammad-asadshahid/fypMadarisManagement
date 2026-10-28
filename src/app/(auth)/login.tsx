@@ -196,8 +196,8 @@ export default function LoginScreen() {
                   mode="contained"
                   onPress={() =>
                     onSubmit({
-                      email: "teacher@mms.com",
-                      password: "teacher123",
+                      email: "teacherone@mail.com",
+                      password: "1234",
                     } as any)
                   }
                 >
@@ -207,8 +207,8 @@ export default function LoginScreen() {
                   mode="contained"
                   onPress={() =>
                     onSubmit({
-                      email: "parent@mms.com",
-                      password: "parent123",
+                      email: "studentone@mail.com",
+                      password: "1234",
                     } as any)
                   }
                 >

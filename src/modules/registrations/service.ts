@@ -150,20 +150,8 @@ class FirestoreRegistrationService implements RegistrationService {
     const reg = await this.getById(id);
 
     const classes = await studentService.getClasses();
-    const student = await studentService.create(
-      buildStudentFromRegistration(classes, reg),
-    );
-
-    // Create a login user for the guardian (parent role).
-    const userId = `usr-${student.id}`;
-    await setDoc(doc(db!, "users", userId), {
-      id: userId,
-      email: reg.guardianEmail.toLowerCase(),
-      password: reg.password,
-      fullName: student.name,
-      role: "parent",
-      parentStudentIds: [student.id],
-    });
+    // `create` also provisions the guardian's parent login (users doc).
+    await studentService.create(buildStudentFromRegistration(classes, reg));
 
     // The record moved to the students table — remove the original registration.
     await deleteDoc(doc(db!, "registrations", id));

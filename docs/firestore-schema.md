@@ -97,7 +97,13 @@ One document per student per day.
 | note | string? | |
 | markedAt | string | ISO |
 
-Service API: mark today (batch per class), history per student, monthly report counts.
+Service API (`src/modules/attendance/service.ts`): mark a day for one class (batched,
+one document per student per day — re-saving a day overwrites rather than duplicates),
+read by date (`getByDate`), by date + class (`getByDateAndClass`), by month
+(`getByMonth`, optionally scoped to a class), per-student history (`getHistory`), and
+monthly report counts (`getMonthlyReport`). Teachers mark for the classes listed in
+their `classIds`; admins get a per-class present/absent/leave roll-up for a chosen day
+plus a printable monthly report.
 
 ## Collection: hifzRecords (FR #5, #10)
 
@@ -129,24 +135,31 @@ Service API: mark today (batch per class), history per student, monthly report c
 
 ## Collection: darsProgressRecords (FR #7)
 
+Kitab-wise progress **per Dars class**: one document per (class, kitab), with document id
+`${classId}__${kitabId}`, so updating overwrites rather than appending. Only a teacher
+whose `classIds` include that `dars_e_nizami` class may write; the admin sees every class's
+progress read-only. The progress screen is grouped by Dars class (Dars-e-Nizami 1,
+Dars-e-Nizami 2, …).
+
 | Field | Type |
 |-------|------|
-| id | string |
-| studentId | string |
+| id | string (= `${classId}__${kitabId}`) |
+| classId | string (FK → `classes`) |
 | kitabId | string (FK → `kitab`) |
-| date | string |
-| chaptersCompleted | number |
 | pagesCovered | number |
-| takrarAttendance | boolean |
-| teacherId, note, createdAt | string |
+| completionPercentage | number (0–100) — computed from pages covered, not entered |
+| teacherId, updatedAt | string |
 
 ## Collection: kitab (FR #7)
+
+Dars textbook catalog (shared by all Dars classes). Teachers assigned to a Dars-e-Nizami
+class can add books, edit their totals and delete them; the admin can view them.
 
 | Field | Type |
 |-------|------|
 | id | string |
 | name | string |
-| totalChapters | number |
+| totalPages | number |
 
 ## Collection: subjects (FR #8)
 

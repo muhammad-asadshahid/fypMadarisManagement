@@ -8,20 +8,10 @@ import {
     updateDoc,
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
+import { DEMO_TEACHERS } from "@/lib/demo-data";
 import type { Teacher, TeacherFormData } from "@/types";
 
-const MOCK_TEACHERS: Teacher[] = [
-  {
-    id: "tch-1",
-    name: "Maulana Abdullah",
-    subjects: ["Hifz"],
-    contactNumber: "0300111222",
-    salary: 30000,
-    classIds: ["cls-1"],
-  },
-];
-
-let teachersDb = [...MOCK_TEACHERS];
+let teachersDb: Teacher[] = [...DEMO_TEACHERS];
 
 function genId() {
   return `tch-${Date.now()}`;

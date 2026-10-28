@@ -314,30 +314,29 @@ export interface NazraUpdateInput {
 export interface Kitab {
   id: string;
   name: string;
-  totalChapters: number;
+  totalPages: number;
 }
 
+export interface KitabInput {
+  id?: string;
+  name: string;
+  totalPages: number;
+}
+
+/** Per-class progress through a kitab — one record per (class, kitab). */
 export interface DarsProgressRecord {
   id: string;
-  studentId: string;
+  classId: string;
   kitabId: string;
-  date: string; // YYYY-MM-DD
-  chaptersCompleted: number;
   pagesCovered: number;
-  takrarAttendance: boolean;
+  /** Derived by the app from pages covered — never entered by hand. */
+  completionPercentage: number;
   teacherId: string;
-  note?: string;
-  createdAt: string;
+  updatedAt: string;
 }
 
-export interface DarsUpdateInput {
-  studentId: string;
-  kitabId: string;
-  date: string;
-  chaptersCompleted: number;
+export interface KitabProgressInput {
   pagesCovered: number;
-  takrarAttendance: boolean;
-  note?: string;
 }
 
 // ===========================================================================
