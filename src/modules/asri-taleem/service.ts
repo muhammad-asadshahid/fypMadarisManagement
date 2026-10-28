@@ -5,37 +5,78 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import { studentService } from "@/modules/students/service";
 import type {
   MarksInput,
   MarksRecord,
-  PromotionRecord,
-  StudentResult,
+  Student,
+  StudentFormData,
   Subject,
 } from "@/types";
 
-export interface AsriTaleemService {
-  getSubjects(): Promise<Subject[]>;
-  addSubject(name: string): Promise<Subject>;
-  enterMarks(marks: MarksInput, teacherId: string): Promise<MarksRecord>;
-  getMarksByStudent(studentId: string): Promise<MarksRecord[]>;
-  getMarksByClass(classId: string): Promise<MarksRecord[]>;
-  generateResults(classId: string, examType: string): Promise<StudentResult[]>;
-  promote(studentId: string, toClassId: string, by: string): Promise<PromotionRecord>;
-}
-
-const DEFAULT_SUBJECTS: Subject[] = [
-  { id: "sub-urdu", name: "Urdu", programType: "asri_taleem" },
-  { id: "sub-english", name: "English", programType: "asri_taleem" },
-  { id: "sub-mathematics", name: "Mathematics", programType: "asri_taleem" },
-  { id: "sub-science", name: "Science", programType: "asri_taleem" },
-  { id: "sub-islamiyat", name: "Islamiyat", programType: "asri_taleem" },
+/** The four fixed Asri Taleem subjects. Nothing else is ever shown. */
+export const DEFAULT_ASRI_SUBJECT_NAMES = [
+  "English",
+  "Math",
+  "Science",
+  "Computer",
 ];
 
-function genId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+export interface AsriTaleemService {
+  getSubjects(): Promise<Subject[]>;
+  renameSubject(subjectId: string, name: string): Promise<void>;
+  saveMarks(entries: MarksInput[], teacherId: string): Promise<void>;
+  getAllMarks(): Promise<MarksRecord[]>;
+  setGrade(studentId: string, grade: number): Promise<void>;
+}
+
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function defaultSubjects(): Subject[] {
+  return DEFAULT_ASRI_SUBJECT_NAMES.map((name) => ({
+    id: `asri-sub-${slugify(name)}`,
+    name,
+    programType: "asri_taleem" as const,
+  }));
+}
+
+function markId(studentId: string, subjectId: string): string {
+  return `marks-${studentId}-${subjectId}`;
+}
+
+function toFormData(student: Student): StudentFormData {
+  return {
+    name: student.name,
+    firstName: student.firstName,
+    lastName: student.lastName,
+    fatherName: student.fatherName,
+    dateOfBirth: student.dateOfBirth,
+    address: student.address,
+    contactNumber: student.contactNumber,
+    admissionDate: student.admissionDate,
+    programType: student.programType,
+    classId: student.classId,
+    hostelStatus: student.hostelStatus,
+    grade: student.grade,
+    photoUri: student.photoUri,
+    email: student.email,
+    password: student.password,
+    bFormCnic: student.bFormCnic,
+    city: student.city,
+    guardianEmail: student.guardianEmail,
+    guardianMobile: student.guardianMobile,
+  };
+}
+
+async function persistGrade(studentId: string, grade: number): Promise<void> {
+  const student = await studentService.getById(studentId);
+  if (!student) return;
+  await studentService.update(studentId, { ...toFormData(student), grade });
 }
 
 class FirestoreAsriService implements AsriTaleemService {
@@ -45,172 +86,93 @@ class FirestoreAsriService implements AsriTaleemService {
   private marksCol() {
     return collection(db!, "marksRecords");
   }
-  private promotionsCol() {
-    return collection(db!, "promotions");
-  }
 
   async getSubjects(): Promise<Subject[]> {
-    const snapshot = await getDocs(this.subjectsCol());
-    const subjects = snapshot.docs.map((d) => d.data() as Subject);
-    return subjects.length ? subjects : DEFAULT_SUBJECTS;
-  }
-
-  async addSubject(name: string): Promise<Subject> {
-    const subject: Subject = { id: genId("sub"), name, programType: "asri_taleem" };
-    await setDoc(doc(db!, "subjects", subject.id), subject);
-    return subject;
-  }
-
-  async enterMarks(
-    mark: MarksInput,
-    teacherId: string,
-  ): Promise<MarksRecord> {
-    const record: MarksRecord = {
-      id: genId("marks"),
-      ...mark,
-      teacherId,
-      date: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    await setDoc(doc(db!, "marksRecords", record.id), record);
-    return record;
-  }
-
-  async getMarksByStudent(studentId: string): Promise<MarksRecord[]> {
-    const q = query(this.marksCol(), where("studentId", "==", studentId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as MarksRecord);
-  }
-
-  async getMarksByClass(classId: string): Promise<MarksRecord[]> {
-    const q = query(this.marksCol(), where("classId", "==", classId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as MarksRecord);
-  }
-
-  async generateResults(
-    classId: string,
-    examType: string,
-  ): Promise<StudentResult[]> {
-    const students = await studentService.getAll();
-    const classStudents = students.filter((s) => s.classId === classId);
-    const subjects = await this.getSubjects();
-    const marks = await this.getMarksByClass(classId);
-
-    return classStudents.map((student) => {
-      const studentMarks = marks.filter(
-        (m) => m.studentId === student.id && m.examType === examType,
-      );
-      const subjectResults = subjects.map((sub) => {
-        const recs = studentMarks.filter((m) => m.subjectId === sub.id);
-        const total = recs.reduce((sum, r) => sum + r.marksObtained, 0);
-        const max = recs.reduce((sum, r) => sum + r.totalMarks, 0);
-        return {
-          subjectName: sub.name,
-          percentage: max > 0 ? (total / max) * 100 : 0,
-        };
-      });
-      const overall = subjectResults.length
-        ? subjectResults.reduce((sum, s) => sum + s.percentage, 0) /
-          subjectResults.length
-        : 0;
-      return {
-        studentId: student.id,
-        studentName: student.name,
-        percentage: overall,
-        passed: overall >= 40,
-        subjectResults,
-      };
+    // Only the fixed four are ever returned; stored docs merely override a name.
+    const snapshot = await getDocs(
+      query(this.subjectsCol(), where("programType", "==", "asri_taleem")),
+    );
+    const renames = new Map<string, string>();
+    snapshot.docs.forEach((d) => {
+      const data = d.data() as Subject;
+      if (data?.name) renames.set(d.id, data.name);
     });
+    return defaultSubjects().map((subject) => ({
+      ...subject,
+      name: renames.get(subject.id) ?? subject.name,
+    }));
   }
 
-  async promote(
-    studentId: string,
-    toClassId: string,
-    by: string,
-  ): Promise<PromotionRecord> {
-    const record: PromotionRecord = {
-      id: genId("promo"),
-      studentId,
-      fromClassId: "",
-      toClassId,
-      promotedAt: new Date().toISOString(),
-      promotedBy: by,
-    };
-    await setDoc(doc(db!, "promotions", record.id), record);
-    return record;
+  async renameSubject(subjectId: string, name: string): Promise<void> {
+    await setDoc(
+      doc(db!, "subjects", subjectId),
+      { id: subjectId, name, programType: "asri_taleem" },
+      { merge: true },
+    );
+  }
+
+  async saveMarks(entries: MarksInput[], teacherId: string): Promise<void> {
+    if (entries.length === 0) return;
+    const now = new Date().toISOString();
+    const batch = writeBatch(db!);
+    for (const entry of entries) {
+      const record: MarksRecord = {
+        id: markId(entry.studentId, entry.subjectId),
+        ...entry,
+        teacherId,
+        date: now,
+        updatedAt: now,
+      };
+      batch.set(doc(db!, "marksRecords", record.id), record);
+    }
+    await batch.commit();
+  }
+
+  async getAllMarks(): Promise<MarksRecord[]> {
+    const snapshot = await getDocs(this.marksCol());
+    return snapshot.docs.map((d) => d.data() as MarksRecord);
+  }
+
+  async setGrade(studentId: string, grade: number): Promise<void> {
+    await persistGrade(studentId, grade);
   }
 }
 
 class MockAsriService implements AsriTaleemService {
-  private subjects: Subject[] = [...DEFAULT_SUBJECTS];
+  private renames: Record<string, string> = {};
   private marks: MarksRecord[] = [];
-  private promotions: PromotionRecord[] = [];
 
   async getSubjects(): Promise<Subject[]> {
-    return [...this.subjects];
-  }
-
-  async addSubject(name: string): Promise<Subject> {
-    const subject: Subject = { id: genId("sub"), name, programType: "asri_taleem" };
-    this.subjects = [subject, ...this.subjects];
-    return subject;
-  }
-
-  async enterMarks(
-    mark: MarksInput,
-    teacherId: string,
-  ): Promise<MarksRecord> {
-    const record: MarksRecord = {
-      id: genId("marks"),
-      ...mark,
-      teacherId,
-      date: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    this.marks = [record, ...this.marks];
-    return record;
-  }
-
-  async getMarksByStudent(studentId: string): Promise<MarksRecord[]> {
-    return this.marks.filter((m) => m.studentId === studentId);
-  }
-
-  async getMarksByClass(classId: string): Promise<MarksRecord[]> {
-    return this.marks.filter((m) => m.classId === classId);
-  }
-
-  async generateResults(
-    classId: string,
-    examType: string,
-  ): Promise<StudentResult[]> {
-    const students = (await studentService.getAll()).filter(
-      (s) => s.classId === classId,
-    );
-    return students.map((student) => ({
-      studentId: student.id,
-      studentName: student.name,
-      percentage: 0,
-      passed: false,
-      subjectResults: [],
+    return defaultSubjects().map((subject) => ({
+      ...subject,
+      name: this.renames[subject.id] ?? subject.name,
     }));
   }
 
-  async promote(
-    studentId: string,
-    toClassId: string,
-    by: string,
-  ): Promise<PromotionRecord> {
-    const record: PromotionRecord = {
-      id: genId("promo"),
-      studentId,
-      fromClassId: "",
-      toClassId,
-      promotedAt: new Date().toISOString(),
-      promotedBy: by,
-    };
-    this.promotions = [record, ...this.promotions];
-    return record;
+  async renameSubject(subjectId: string, name: string): Promise<void> {
+    this.renames = { ...this.renames, [subjectId]: name };
+  }
+
+  async saveMarks(entries: MarksInput[], teacherId: string): Promise<void> {
+    const now = new Date().toISOString();
+    for (const entry of entries) {
+      const record: MarksRecord = {
+        id: markId(entry.studentId, entry.subjectId),
+        ...entry,
+        teacherId,
+        date: now,
+        updatedAt: now,
+      };
+      this.marks = [...this.marks.filter((m) => m.id !== record.id), record];
+    }
+  }
+
+  async getAllMarks(): Promise<MarksRecord[]> {
+    return [...this.marks];
+  }
+
+  async setGrade(studentId: string, grade: number): Promise<void> {
+    await persistGrade(studentId, grade);
   }
 }
 

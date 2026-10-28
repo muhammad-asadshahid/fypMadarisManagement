@@ -58,6 +58,8 @@ export interface Student {
   programType: ProgramType;
   classId: string;
   hostelStatus: boolean;
+  /** Asri Taleem level (1, 2, ...). Students of different levels can share one class. */
+  grade?: number;
   photoUri?: string;
   email?: string;
   password?: string;
@@ -177,6 +179,7 @@ export interface StudentFormData {
   programType: ProgramType;
   classId: string;
   hostelStatus: boolean;
+  grade?: number;
   photoUri?: string;
   email?: string;
   password?: string;
@@ -252,18 +255,70 @@ export interface AttendanceMarkInput {
 }
 
 // ===========================================================================
-// Hifz (FR #5)
+// Hifz & Nazra — class-wide lesson log (FR #5, #6)
+// ===========================================================================
+
+/** Sabaq/Sabaqi/Manzil are logged once per class per day and shared by every
+ *  student of that class. */
+export interface LessonLog {
+  id: string; // `ll-${classId}-${date}` (deterministic upsert)
+  classId: string;
+  programType: ProgramType; // hifz_ul_quran | nazra_quran
+  date: string; // YYYY-MM-DD
+  // Sabaq (new lesson)
+  sabaqJuz: number;
+  sabaqSurah: string;
+  sabaqAyahStart: number;
+  sabaqAyahEnd: number;
+  sabaqPages: number;
+  // Sabaqi (recent revision, last 5-7 days)
+  sabaqiDate: string; // YYYY-MM-DD
+  sabaqiSurah: string;
+  sabaqiAyahStart: number;
+  sabaqiAyahEnd: number;
+  sabaqiNotes: string;
+  // Manzil (old revision)
+  manzilJuz: number;
+  manzilSurah: string;
+  manzilAyahStart: number;
+  manzilAyahEnd: number;
+  teacherId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LessonLogInput {
+  classId: string;
+  programType: ProgramType;
+  date: string;
+  sabaqJuz: number;
+  sabaqSurah: string;
+  sabaqAyahStart: number;
+  sabaqAyahEnd: number;
+  sabaqPages: number;
+  sabaqiDate: string;
+  sabaqiSurah: string;
+  sabaqiAyahStart: number;
+  sabaqiAyahEnd: number;
+  sabaqiNotes: string;
+  manzilJuz: number;
+  manzilSurah: string;
+  manzilAyahStart: number;
+  manzilAyahEnd: number;
+}
+
+// ===========================================================================
+// Hifz — per-student daily progress (FR #5)
 // ===========================================================================
 
 export interface HifzRecord {
-  id: string;
+  id: string; // `hifz-${studentId}-${date}`
   studentId: string;
+  classId: string;
+  lessonId: string; // FK -> LessonLog.id
   date: string; // YYYY-MM-DD
-  sabaq: string; // new lesson
-  sabaqi: string; // revision
-  manzil: string; // manzil / recited portion
   mistakeCount: number;
-  grade: HifzGrade;
+  grade: HifzGrade; // derived from mistakeCount
   teacherId: string;
   note?: string;
   createdAt: string;
@@ -271,40 +326,42 @@ export interface HifzRecord {
 
 export interface HifzUpdateInput {
   studentId: string;
+  classId: string;
+  lessonId: string;
   date: string;
-  sabaq: string;
-  sabaqi: string;
-  manzil: string;
   mistakeCount: number;
-  grade: HifzGrade;
   note?: string;
 }
 
 // ===========================================================================
-// Nazra (FR #6)
+// Nazra — per-student daily progress (FR #6)
 // ===========================================================================
 
 export interface NazraRecord {
-  id: string;
+  id: string; // `nazra-${studentId}-${date}`
   studentId: string;
+  classId: string;
+  lessonId: string; // FK -> LessonLog.id
   date: string; // YYYY-MM-DD
-  pageFrom: number;
-  pageTo: number;
-  fluency: number; // 0-100
-  remarks?: string;
-  completionPercentage: number; // 0-100
+  pageNumber: number;
+  lessonCompletion: number; // 0-100
+  fluencyLevel: number; // 0-100
+  pronunciationErrors: number;
+  remarks: string;
   teacherId: string;
   createdAt: string;
 }
 
 export interface NazraUpdateInput {
   studentId: string;
+  classId: string;
+  lessonId: string;
   date: string;
-  pageFrom: number;
-  pageTo: number;
-  fluency: number;
-  remarks?: string;
-  completionPercentage: number;
+  pageNumber: number;
+  lessonCompletion: number;
+  fluencyLevel: number;
+  pronunciationErrors: number;
+  remarks: string;
 }
 
 // ===========================================================================
@@ -350,42 +407,19 @@ export interface Subject {
 }
 
 export interface MarksRecord {
-  id: string;
+  id: string; // `marks-${studentId}-${subjectId}`
   studentId: string;
   subjectId: string;
-  classId: string;
-  examType: string; // mid_term | final
-  marksObtained: number;
-  totalMarks: number;
-  date: string;
+  marksObtained: number; // out of 100
   teacherId: string;
-  createdAt: string;
+  date: string;
+  updatedAt: string;
 }
 
 export interface MarksInput {
   studentId: string;
   subjectId: string;
-  classId: string;
-  examType: string;
   marksObtained: number;
-  totalMarks: number;
-}
-
-export interface PromotionRecord {
-  id: string;
-  studentId: string;
-  fromClassId: string;
-  toClassId: string;
-  promotedAt: string;
-  promotedBy: string;
-}
-
-export interface StudentResult {
-  studentId: string;
-  studentName: string;
-  percentage: number;
-  passed: boolean;
-  subjectResults: { subjectName: string; percentage: number }[];
 }
 
 // ===========================================================================

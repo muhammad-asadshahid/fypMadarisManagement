@@ -296,5 +296,54 @@
     "totalDonations": "Total Donations",
     "totalFees": "Fees Collected",
     "totalSalaries": "Salaries Paid"
+  },
+  "lessons": {
+    "sabaq": "Sabaq (New Lesson)",
+    "sabaqi": "Sabaqi (Recent Revision)",
+    "manzil": "Manzil (Old Revision)",
+    "juz": "Juz",
+    "surah": "Surah",
+    "ayahStart": "Ayah start",
+    "ayahEnd": "Ayah end",
+    "pages": "Pages memorized",
+    "date": "Revision date",
+    "notes": "Performance notes",
+    "save": "Save Lesson",
+    "saved": "Lesson saved"
+  },
+  "hifz": {
+    "grade": {
+      "mumtaz": "Mumtaz",
+      "jayyidJiddan": "Jayyid Jiddan",
+      "jayyid": "Jayyid",
+      "needsImprovement": "Needs Improvement"
+    },
+    "mistakes": "Mistakes",
+    "progress": "Student Progress",
+    "saveProgress": "Save Progress",
+    "notAssigned": "You are not assigned to any Hifz class.",
+    "readOnly": "Admin view — read-only. Only the assigned teacher can edit Hifz progress."
+  },
+  "nazra": {
+    "pageNumber": "Page",
+    "lessonCompletion": "Completion %",
+    "fluencyLevel": "Fluency",
+    "pronunciationErrors": "Pronunciation errors",
+    "remarks": "Teacher remarks",
+    "progress": "Student Progress",
+    "saveProgress": "Save Progress",
+    "notAssigned": "You are not assigned to any Nazra class.",
+    "readOnly": "Admin view — read-only. Only the assigned teacher can edit Nazra progress."
+  },
+  "asri": {
+    "subjects": "Subjects",
+    "subjectName": "Subject name",
+    "renameSubject": "Rename Subject",
+    "grade": "Grade",
+    "marks": "Marks",
+    "outOf100": "out of 100",
+    "saveMarks": "Save Marks",
+    "notAssigned": "You are not assigned to any Asri Taleem class.",
+    "readOnly": "Admin view — read-only. Only the assigned teacher can edit subjects and marks."
   }
 }

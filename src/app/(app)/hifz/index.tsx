@@ -1,94 +1,200 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Chip, List } from "react-native-paper";
+import { StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Button,
+  Divider,
+  Text,
+} from "react-native-paper";
 
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { PROGRAM_LABEL_KEYS } from "@/constants/programs";
+import { HifzProgressRow } from "@/components/hifz/hifz-progress-row";
+import { LessonLogForm } from "@/components/hifz/lesson-log-form";
+import { useAssignedClasses } from "@/hooks/use-assigned-classes";
+import { todayStr } from "@/modules/attendance/service";
 import { hifzService } from "@/modules/hifz/service";
-import { studentService } from "@/modules/students/service";
-import type { HifzGrade, HifzRecord, Student } from "@/types";
-
-const GRADE_ORDER: HifzGrade[] = [
-  "mumtaz",
-  "jayyid_jiddan",
-  "jayyid",
-  "needs_improvement",
-];
+import { lessonLogService } from "@/modules/lessons/service";
+import { useAuthStore } from "@/store/authStore";
+import type { HifzUpdateInput, LessonLog, LessonLogInput } from "@/types";
 
 export default function HifzScreen() {
   const { t } = useTranslation();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [latestByStudent, setLatestByStudent] = useState<
-    Record<string, HifzRecord>
-  >({});
-  const [loading, setLoading] = useState(true);
+  const user = useAuthStore((s) => s.user);
+  const { classes, loading: classesLoading } = useAssignedClasses();
 
-  const loadStudents = useCallback(async () => {
+  const matching = useMemo(
+    () => classes.filter((cls) => cls.programType === "hifz_ul_quran"),
+    [classes],
+  );
+
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [lesson, setLesson] = useState<LessonLog | null>(null);
+  const [mistakes, setMistakes] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingLesson, setSavingLesson] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
+
+  const selectedClass = useMemo(
+    () => matching.find((cls) => cls.id === selectedClassId) ?? matching[0] ?? null,
+    [matching, selectedClassId],
+  );
+  const classId = selectedClass?.id ?? null;
+  const date = todayStr();
+  const teacherId = user?.teacherId ?? user?.id ?? "";
+  const canEdit = user?.role === "teacher";
+
+  const loadClassData = useCallback(async () => {
+    if (!classId) {
+      setLesson(null);
+      setMistakes({});
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const studentList = await studentService.getAll();
-      setStudents(studentList);
-
-      const hifzStudents = studentList.filter(
-        (s) => s.programType === "hifz_ul_quran",
-      );
-      const latest: Record<string, HifzRecord> = {};
-      await Promise.all(
-        hifzStudents.map(async (s) => {
-          const recs = await hifzService.getByStudent(s.id);
-          if (recs.length) latest[s.id] = recs[0];
-        }),
-      );
-      setLatestByStudent(latest);
+      const [lessonLog, records] = await Promise.all([
+        lessonLogService.getByClassAndDate(classId, date),
+        hifzService.getByClassAndDate(classId, date),
+      ]);
+      setLesson(lessonLog);
+      const map: Record<string, number> = {};
+      (selectedClass?.students ?? []).forEach((student) => {
+        map[student.id] = 0;
+      });
+      records.forEach((record) => {
+        map[record.studentId] = record.mistakeCount;
+      });
+      setMistakes(map);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [classId, date, selectedClass]);
 
   useFocusEffect(
     useCallback(() => {
-      loadStudents();
-    }, [loadStudents]),
+      loadClassData();
+    }, [loadClassData]),
   );
 
-  const hifzStudents = useMemo(
-    () => students.filter((s) => s.programType === "hifz_ul_quran"),
-    [students],
-  );
-
-  const gradeFor = (studentId: string): HifzGrade => {
-    const rec = latestByStudent[studentId];
-    if (rec) return rec.grade;
-    const idx = hifzStudents.findIndex((s) => s.id === studentId);
-    return GRADE_ORDER[idx % GRADE_ORDER.length];
+  const handleSaveLesson = async (input: LessonLogInput) => {
+    setSavingLesson(true);
+    try {
+      setLesson(await lessonLogService.save(input, teacherId));
+    } finally {
+      setSavingLesson(false);
+    }
   };
+
+  const handleSaveProgress = async () => {
+    if (!selectedClass) return;
+    const lessonId = lesson?.id ?? `ll-${selectedClass.id}-${date}`;
+    const entries: HifzUpdateInput[] = selectedClass.students.map((student) => ({
+      studentId: student.id,
+      classId: selectedClass.id,
+      lessonId,
+      date,
+      mistakeCount: mistakes[student.id] ?? 0,
+    }));
+    setSavingProgress(true);
+    try {
+      await hifzService.recordClass(entries, teacherId);
+    } finally {
+      setSavingProgress(false);
+    }
+  };
+
+  if (classesLoading) {
+    return (
+      <ScreenWrapper title={t("nav.hifz")}>
+        <ActivityIndicator style={styles.loader} />
+      </ScreenWrapper>
+    );
+  }
+
+  if (matching.length === 0) {
+    return (
+      <ScreenWrapper title={t("nav.hifz")}>
+        <EmptyState message={t("hifz.notAssigned")} />
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper title={t("nav.hifz")}>
+      {matching.length > 1 && (
+        <View style={styles.classList}>
+          {matching.map((cls) => (
+            <Button
+              key={cls.id}
+              compact
+              mode={cls.id === classId ? "contained" : "outlined"}
+              onPress={() => setSelectedClassId(cls.id)}
+            >
+              {cls.name}
+            </Button>
+          ))}
+        </View>
+      )}
+
       {loading ? (
         <ActivityIndicator style={styles.loader} />
-      ) : hifzStudents.length === 0 ? (
-        <EmptyState message={t("common.noData")} />
       ) : (
-        <FlatList
-          data={hifzStudents}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <List.Item
-              title={item.name}
-              description={`${t(PROGRAM_LABEL_KEYS[item.programType])} • ${item.fatherName}`}
-              right={() => (
-                <Chip style={styles.chip} mode="outlined">
-                  {gradeFor(item.id)}
-                </Chip>
-              )}
-            />
+        <>
+          <LessonLogForm
+            classId={classId ?? ""}
+            programType="hifz_ul_quran"
+            date={date}
+            initial={lesson}
+            saving={savingLesson}
+            onSave={handleSaveLesson}
+            readOnly={!canEdit}
+          />
+
+          {!canEdit && (
+            <Text variant="bodySmall" style={styles.readOnlyNote}>
+              {t("hifz.readOnly")}
+            </Text>
           )}
-          ItemSeparatorComponent={() => <View style={styles.divider} />}
-        />
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("hifz.progress")}
+          </Text>
+
+          {selectedClass?.students.length === 0 ? (
+            <EmptyState message={t("common.noData")} />
+          ) : (
+            <View>
+              {selectedClass?.students.map((student, index) => (
+                <View key={student.id}>
+                  {index > 0 && <Divider />}
+                  <HifzProgressRow
+                    student={student}
+                    value={mistakes[student.id] ?? 0}
+                    onChange={(value) =>
+                      setMistakes((prev) => ({ ...prev, [student.id]: value }))
+                    }
+                    readOnly={!canEdit}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+
+          {canEdit && (
+            <Button
+              mode="contained"
+              onPress={handleSaveProgress}
+              loading={savingProgress}
+              disabled={savingProgress}
+              style={styles.saveProgress}
+            >
+              {t("hifz.saveProgress")}
+            </Button>
+          )}
+        </>
       )}
     </ScreenWrapper>
   );
@@ -98,12 +204,19 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
   },
-  chip: {
-    alignSelf: "center",
-    marginRight: 8,
+  classList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 4,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E0E0E0",
+  sectionTitle: {
+    marginTop: 8,
+  },
+  readOnlyNote: {
+    opacity: 0.7,
+  },
+  saveProgress: {
+    marginTop: 12,
   },
 });

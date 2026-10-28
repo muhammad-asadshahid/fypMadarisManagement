@@ -1,9 +1,11 @@
 import { router } from "expo-router";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Avatar, Divider, Drawer, Text, useTheme } from "react-native-paper";
 
-import { getNavItemsForRole } from "@/constants/navigation";
+import { getNavItemsForUser } from "@/constants/navigation";
+import { useAssignedClasses } from "@/hooks/use-assigned-classes";
 import { useAuthStore } from "@/store/authStore";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -12,10 +14,16 @@ export function AppDrawerContent(props: any) {
   const theme = useTheme();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { classes } = useAssignedClasses();
+
+  const teacherPrograms = useMemo(
+    () => new Set(classes.map((cls) => cls.programType)),
+    [classes],
+  );
 
   if (!user) return null;
 
-  const navItems = getNavItemsForRole(user.role);
+  const navItems = getNavItemsForUser(user.role, teacherPrograms);
 
   const handleLogout = async () => {
     await logout();
