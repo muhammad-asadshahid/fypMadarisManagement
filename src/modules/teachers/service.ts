@@ -41,6 +41,20 @@ class FirestoreTeacherService implements TeacherService {
     return collection(db!, "teachers");
   }
 
+  // Mirror the teacher into the `users` collection so they can log in
+  // (authService.login reads users by email + password).
+  private async syncUser(teacher: Teacher): Promise<void> {
+    if (!teacher.email) return;
+    await setDoc(doc(db!, "users", `usr-${teacher.id}`), {
+      id: `usr-${teacher.id}`,
+      email: teacher.email.toLowerCase(),
+      password: teacher.password ?? "",
+      fullName: teacher.name,
+      role: "teacher",
+      teacherId: teacher.id,
+    });
+  }
+
   async getAll(): Promise<Teacher[]> {
     const snapshot = await getDocs(this.teachersCol());
     return snapshot.docs.map((d) => d.data() as Teacher);
@@ -68,12 +82,15 @@ class FirestoreTeacherService implements TeacherService {
     const teacher: Teacher = {
       id: genId(),
       name: data.name,
+      email: data.email,
+      password: data.password,
       contactNumber: data.contactNumber ?? "",
       salary: data.salary ?? 0,
       subjects: data.subjects ?? [],
       classIds: data.classIds ?? [],
     };
     await setDoc(doc(db!, "teachers", teacher.id), teacher);
+    await this.syncUser(teacher);
     return teacher;
   }
 
@@ -92,11 +109,13 @@ class FirestoreTeacherService implements TeacherService {
       id,
     };
     await updateDoc(ref, { ...updated });
+    await this.syncUser(updated);
     return updated;
   }
 
   async delete(id: string): Promise<void> {
     await deleteDoc(doc(db!, "teachers", id));
+    await deleteDoc(doc(db!, "users", `usr-${id}`));
   }
 }
 
@@ -125,6 +144,8 @@ class MockTeacherService implements TeacherService {
     const teacher: Teacher = {
       id: genId(),
       name: data.name,
+      email: data.email,
+      password: data.password,
       contactNumber: data.contactNumber ?? "",
       salary: data.salary ?? 0,
       subjects: data.subjects ?? [],

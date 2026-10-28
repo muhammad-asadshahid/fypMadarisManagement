@@ -22,9 +22,15 @@ export default function HostelVisitorsScreen() {
   const [records, setRecords] = useState<VisitorRecord[]>([]);
 
   useEffect(() => {
-    studentService.getAll().then((studentList) => {
+    const load = async () => {
+      const [studentList, visitorList] = await Promise.all([
+        studentService.getAll(),
+        hostelService.getVisitors(),
+      ]);
       setStudents(studentList.filter((student) => student.hostelStatus));
-    });
+      setRecords(visitorList);
+    };
+    load();
   }, []);
 
   const submitVisitor = async () => {

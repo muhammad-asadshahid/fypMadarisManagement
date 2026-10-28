@@ -5,12 +5,14 @@ import {
     getDoc,
     getDocs,
     setDoc,
+    writeBatch,
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
+import { EMPTY_MEAL_PLAN } from "@/constants/hostel";
 import { studentService } from "@/modules/students/service";
 import type {
     HostelAllocation,
-    MealRecord,
+    MealPlanDay,
     Room,
     VisitorRecord,
 } from "@/types";
@@ -41,7 +43,7 @@ const MOCK_ALLOCATIONS: HostelAllocation[] = [
 
 let roomsDb = [...MOCK_ROOMS];
 let allocationsDb = [...MOCK_ALLOCATIONS];
-let mealsDb: MealRecord[] = [];
+let mealPlanDb: MealPlanDay[] = EMPTY_MEAL_PLAN.map((d) => ({ ...d }));
 let visitorsDb: VisitorRecord[] = [];
 
 export interface HostelService {
@@ -52,8 +54,10 @@ export interface HostelService {
   ): Promise<HostelAllocation>;
   getAllocations(): Promise<HostelAllocation[]>;
   getOccupancy(roomId: string): Promise<number>;
-  recordMeal(meal: Omit<MealRecord, "id">): Promise<MealRecord>;
+  getMealPlan(): Promise<MealPlanDay[]>;
+  saveMealPlan(plan: MealPlanDay[]): Promise<void>;
   recordVisitor(visitor: Omit<VisitorRecord, "id">): Promise<VisitorRecord>;
+  getVisitors(): Promise<VisitorRecord[]>;
 }
 
 class FirestoreHostelService implements HostelService {
@@ -115,10 +119,15 @@ class FirestoreHostelService implements HostelService {
     return allocations.filter((a) => a.roomId === roomId).length;
   }
 
-  async recordMeal(meal: Omit<MealRecord, "id">): Promise<MealRecord> {
-    const created: MealRecord = { id: `meal-${Date.now()}`, ...meal };
-    await setDoc(doc(db!, "mealRecords", created.id), created);
-    return created;
+  async getMealPlan(): Promise<MealPlanDay[]> {
+    const snapshot = await getDocs(this.col("mealPlan"));
+    return snapshot.docs.map((d) => d.data() as MealPlanDay);
+  }
+
+  async saveMealPlan(plan: MealPlanDay[]): Promise<void> {
+    const batch = writeBatch(db!);
+    plan.forEach((day) => batch.set(doc(db!, "mealPlan", day.id), day));
+    await batch.commit();
   }
 
   async recordVisitor(
@@ -127,6 +136,13 @@ class FirestoreHostelService implements HostelService {
     const created: VisitorRecord = { id: `visitor-${Date.now()}`, ...visitor };
     await setDoc(doc(db!, "visitorRecords", created.id), created);
     return created;
+  }
+
+  async getVisitors(): Promise<VisitorRecord[]> {
+    const snapshot = await getDocs(this.col("visitorRecords"));
+    return snapshot.docs
+      .map((d) => d.data() as VisitorRecord)
+      .sort((a, b) => b.visitDate.localeCompare(a.visitDate));
   }
 }
 
@@ -183,10 +199,12 @@ class MockHostelService implements HostelService {
       .length;
   }
 
-  async recordMeal(meal: Omit<MealRecord, "id">): Promise<MealRecord> {
-    const created = { id: `meal-${Date.now()}`, ...meal };
-    mealsDb = [created, ...mealsDb];
-    return created;
+  async getMealPlan(): Promise<MealPlanDay[]> {
+    return mealPlanDb.map((d) => ({ ...d }));
+  }
+
+  async saveMealPlan(plan: MealPlanDay[]): Promise<void> {
+    mealPlanDb = plan.map((d) => ({ ...d }));
   }
 
   async recordVisitor(
@@ -195,6 +213,10 @@ class MockHostelService implements HostelService {
     const created = { id: `visitor-${Date.now()}`, ...visitor };
     visitorsDb = [created, ...visitorsDb];
     return created;
+  }
+
+  async getVisitors(): Promise<VisitorRecord[]> {
+    return [...visitorsDb];
   }
 }
 

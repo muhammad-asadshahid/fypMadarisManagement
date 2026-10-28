@@ -21,11 +21,11 @@ Firestore-backed implementation when Firebase is configured and a mock fallback 
 | 6  | Nazra | `nazraRecords` |
 | 7  | Dars-e-Nizami | `darsProgressRecords`, `kitab` |
 | 8  | Asri Taleem | `subjects`, `marksRecords`, `promotions` |
-| 9  | Hostel | `hostelRooms`, `hostelAllocations`, `mealRecords`, `visitorRecords` |
-| 10 | Parent monitoring | read-only across `attendance`/`hifzRecords`/`nazraRecords`/`feeRecords` |
+| 9  | Hostel | `hostelRooms`, `hostelAllocations`, `mealPlan`, `visitorRecords` |
+| 10 | Parent monitoring | read-only across `attendance`/`hifzRecords`/`nazraRecords`/`feePayments` |
 | 11 | Donation | `donors`, `donations`, `zakatDistributions` |
 | 12 | Salary | `salaryPayments` |
-| 13 | Fees | `feeRecords` |
+| 13 | Fees | `feePayments` |
 | 14 | Reports | aggregate reads across all collections (see `src/modules/reports/service.ts`) |
 
 ---
@@ -70,13 +70,17 @@ Holds every login account. Role controls the navigation the account can access.
 
 ## Collection: teachers (FR #3)
 
-| Field | Type |
-|-------|------|
-| id | string |
-| name, contactNumber | string |
-| subjects | string[] |
-| salary | number |
-| classIds | string[] (FK → classes) — drives workload view |
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string | |
+| name, contactNumber | string | |
+| email, password | string | login credentials (password = 4-digit PIN) |
+| subjects | string[] | |
+| salary | number | |
+| classIds | string[] (FK → classes) — drives workload view | |
+
+Each teacher also has a matching `users` document (`usr-<teacherId>`, role `teacher`,
+`teacherId`) created on add/update and removed on delete — this is what powers teacher login.
 
 ## Collection: attendance (FR #4, #10)
 
@@ -181,9 +185,11 @@ Results and pass/fail are computed from these records via
 `hostelRooms`: `{ id, name, capacity, createdAt }`
 `hostelAllocations`: `{ id, studentId, roomId, assignedAt }` — occupancy = count per roomId.
 
-## Collection: mealRecords / visitorRecords (FR #9)
+## Collection: mealPlan / visitorRecords (FR #9)
 
-`mealRecords`: `{ id, studentId, roomId, date, mealType, notes? }`
+`mealPlan`: one document per weekday, edited by the admin for the whole hostel:
+`{ id: "monday", breakfast, lunch, dinner }` (ids `monday`…`sunday`).
+
 `visitorRecords`: `{ id, studentId, visitorName, visitDate, notes? }`
 
 ## Collection: donors / donations / zakatDistributions (FR #11)
@@ -196,9 +202,10 @@ Results and pass/fail are computed from these records via
 
 `{ id, teacherId, amount, month, date, note? }`
 
-## Collection: feeRecords (FR #13, #10)
+## Collection: feePayments (FR #13, #10)
 
-`{ id, studentId, month, amount, paid, date, note? }` — parents see `paid` per month.
+`{ id, studentId, month, paid, amount, paidAt?, note? }` — doc id is
+`${studentId}__${month}` (`month` = "YYYY-MM"); parents see `paid` per month.
 
 ---
 

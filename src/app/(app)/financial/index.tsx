@@ -16,24 +16,32 @@ import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { currentMonthKey, monthLabel } from "@/lib/months";
 import { financialService } from "@/modules/financial/service";
 import { studentService } from "@/modules/students/service";
-import type { FeePayment, Student } from "@/types";
+import { teacherService } from "@/modules/teachers/service";
+import type { FeePayment, SalaryPayment, Student, Teacher } from "@/types";
 
 export default function FinancialScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const month = currentMonthKey();
   const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [payments, setPayments] = useState<Record<string, FeePayment>>({});
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentList, feePayments] = await Promise.all([
-        studentService.getAll(),
-        financialService.getFeePayments(month),
-      ]);
+      const [studentList, teacherList, salaryList, feePayments] =
+        await Promise.all([
+          studentService.getAll(),
+          teacherService.getAll(),
+          financialService.getSalaryPayments(),
+          financialService.getFeePayments(month),
+        ]);
       setStudents(studentList);
+      setTeachers(teacherList);
+      setSalaryPayments(salaryList);
       setPayments(
         Object.fromEntries(feePayments.map((p) => [p.studentId, p])),
       );
@@ -59,6 +67,20 @@ export default function FinancialScreen() {
 
   const dueCount = feeStatuses.filter((record) => record.hasDue).length;
   const clearCount = feeStatuses.length - dueCount;
+
+  const salaryStatus = useMemo(
+    () =>
+      teachers.map((teacher) => ({
+        teacher,
+        paid: salaryPayments.some(
+          (payment) =>
+            payment.teacherId === teacher.id && payment.month === month,
+        ),
+      })),
+    [teachers, salaryPayments, month],
+  );
+  const unpaidSalaryCount = salaryStatus.filter((row) => !row.paid).length;
+  const paidSalaryCount = salaryStatus.length - unpaidSalaryCount;
 
   return (
     <ScreenWrapper
@@ -121,6 +143,46 @@ export default function FinancialScreen() {
             </Button>
           </View>
 
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {`${t("financial.salary")} • ${monthLabel(month)}`}
+          </Text>
+          <View style={styles.summaryRow}>
+            <Card mode="elevated" style={styles.summaryCard}>
+              <Card.Content>
+                <Text variant="headlineMedium">{paidSalaryCount}</Text>
+                <Text>{t("financial.salaryPaid")}</Text>
+              </Card.Content>
+            </Card>
+            <Card mode="elevated" style={styles.summaryCard}>
+              <Card.Content>
+                <Text variant="headlineMedium">{unpaidSalaryCount}</Text>
+                <Text>{t("financial.salaryUnpaid")}</Text>
+              </Card.Content>
+            </Card>
+          </View>
+
+          {salaryStatus.map(({ teacher, paid }) => (
+            <List.Item
+              key={teacher.id}
+              title={teacher.name}
+              description={`${t("financial.salary")}: ${teacher.salary ?? 0}`}
+              right={() => (
+                <Chip
+                  style={styles.chip}
+                  mode="outlined"
+                  icon={paid ? "check-circle" : "clock-outline"}
+                >
+                  {paid
+                    ? t("financial.salaryPaid")
+                    : t("financial.salaryUnpaid")}
+                </Chip>
+              )}
+            />
+          ))}
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("financial.fees")}
+          </Text>
           <FlatList
             data={feeStatuses}
             keyExtractor={(item) => item.id}
@@ -172,6 +234,10 @@ const styles = StyleSheet.create({
   chip: {
     alignSelf: "center",
     marginRight: 8,
+  },
+  sectionTitle: {
+    marginTop: 16,
+    marginBottom: 8,
   },
   divider: {
     height: 1,

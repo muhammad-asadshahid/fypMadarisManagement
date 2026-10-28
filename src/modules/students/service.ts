@@ -20,6 +20,7 @@ import { applyRoster, rosterMatches } from "@/lib/class-roster";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import type {
     Class,
+    ClassWithStudents,
     Student,
     StudentDeletionCheck,
     StudentFormData,
@@ -34,6 +35,7 @@ export interface StudentService {
   canDelete(id: string): Promise<StudentDeletionCheck>;
   delete(id: string): Promise<void>;
   getClasses(): Promise<Class[]>;
+  getClassesWithStudents(): Promise<ClassWithStudents[]>;
 }
 
 let studentsDb = [...MOCK_STUDENTS];
@@ -171,6 +173,17 @@ class FirestoreStudentService implements StudentService {
       }),
     );
   }
+
+  async getClassesWithStudents(): Promise<ClassWithStudents[]> {
+    const [classes, students] = await Promise.all([
+      this.getClasses(),
+      this.getAll(),
+    ]);
+    return classes.map((cls) => ({
+      ...cls,
+      students: students.filter((student) => student.classId === cls.id),
+    }));
+  }
 }
 
 class MockStudentService implements StudentService {
@@ -241,6 +254,17 @@ class MockStudentService implements StudentService {
 
   async getClasses(): Promise<Class[]> {
     return MOCK_CLASSES.map((cls) => applyRoster(cls, studentsDb));
+  }
+
+  async getClassesWithStudents(): Promise<ClassWithStudents[]> {
+    const [classes, students] = await Promise.all([
+      this.getClasses(),
+      this.getAll(),
+    ]);
+    return classes.map((cls) => ({
+      ...cls,
+      students: students.filter((student) => student.classId === cls.id),
+    }));
   }
 }
 

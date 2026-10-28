@@ -38,6 +38,10 @@ export interface Class {
   students: ClassStudent[];
 }
 
+export interface ClassWithStudents extends Class {
+  students: Student[];
+}
+
 export interface Student {
   id: string;
   /** Full display name. When created from an approved registration, this is
@@ -70,6 +74,8 @@ export interface Student {
 export interface Teacher {
   id: string;
   name: string;
+  email?: string;
+  password?: string;
   subjects: string[];
   contactNumber: string;
   salary: number;
@@ -78,6 +84,8 @@ export interface Teacher {
 
 export interface TeacherFormData {
   name: string;
+  email?: string;
+  password?: string;
   subjects?: string[];
   classIds?: string[];
   contactNumber?: string;
@@ -98,13 +106,11 @@ export interface HostelAllocation {
   assignedAt: string;
 }
 
-export interface MealRecord {
+export interface MealPlanDay {
   id: string;
-  studentId: string;
-  roomId: string;
-  date: string;
-  mealType: string;
-  notes?: string;
+  breakfast: string;
+  lunch: string;
+  dinner: string;
 }
 
 export interface VisitorRecord {

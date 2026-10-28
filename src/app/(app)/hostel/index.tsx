@@ -89,7 +89,7 @@ export default function HostelScreen() {
               mode="contained"
               onPress={() => router.push("/(app)/hostel/meals" as never)}
             >
-              {t("hostel.recordMeal")}
+              {t("hostel.mealPlan")}
             </Button>
             <Button
               mode="contained"

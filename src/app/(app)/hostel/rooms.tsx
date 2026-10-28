@@ -6,19 +6,31 @@ import { Button, Card, Text, TextInput } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { hostelService } from "@/modules/hostel/service";
-import type { Room } from "@/types";
+import type { HostelAllocation, Room } from "@/types";
 
 export default function HostelRoomsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [allocations, setAllocations] = useState<HostelAllocation[]>([]);
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    hostelService.getRooms().then(setRooms);
+    const load = async () => {
+      const [roomList, allocationList] = await Promise.all([
+        hostelService.getRooms(),
+        hostelService.getAllocations(),
+      ]);
+      setRooms(roomList);
+      setAllocations(allocationList);
+    };
+    load();
   }, []);
+
+  const occupancyFor = (roomId: string) =>
+    allocations.filter((allocation) => allocation.roomId === roomId).length;
 
   const submitRoom = async () => {
     if (!name || !capacity) return;
@@ -78,6 +90,9 @@ export default function HostelRoomsScreen() {
             <Text variant="titleMedium">{room.name}</Text>
             <Text>
               {t("hostel.capacity")} : {room.capacity}
+            </Text>
+            <Text>
+              {t("hostel.occupancy")} : {occupancyFor(room.id)} / {room.capacity}
             </Text>
           </Card.Content>
         </Card>

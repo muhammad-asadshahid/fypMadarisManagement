@@ -5,97 +5,90 @@ import { StyleSheet, View } from "react-native";
 import { Button, Card, Text, TextInput } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
-import { studentService } from "@/modules/students/service";
-import type { Student } from "@/types";
+import { EMPTY_MEAL_PLAN, MEAL_PLAN_DAYS, MEAL_SLOTS } from "@/constants/hostel";
+import { hostelService } from "@/modules/hostel/service";
+import type { MealPlanDay } from "@/types";
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-const TIMES = ["Breakfast", "Lunch", "Dinner"];
+type MealSlot = (typeof MEAL_SLOTS)[number];
 
 export default function HostelMealsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [rooms, setRooms] = useState<string[]>([]);
-  const [weekPlan, setWeekPlan] = useState<
-    Record<string, Record<string, string>>
-  >({});
+  const [plan, setPlan] = useState<MealPlanDay[]>(EMPTY_MEAL_PLAN);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const studentList = await studentService.getAll();
-      setStudents(studentList.filter((s) => s.hostelStatus));
-
-      // initialize empty week plan
-      const initial: Record<string, Record<string, string>> = {};
-      for (const day of DAYS) {
-        initial[day] = {};
-        for (const time of TIMES) {
-          initial[day][time] = "";
-        }
-      }
-      setWeekPlan(initial);
+      const stored = await hostelService.getMealPlan();
+      setPlan(
+        MEAL_PLAN_DAYS.map(
+          (id) =>
+            stored.find((day) => day.id === id) ?? {
+              id,
+              breakfast: "",
+              lunch: "",
+              dinner: "",
+            },
+        ),
+      );
     };
     load();
   }, []);
 
-  const updateCell = (day: string, time: string, value: string) => {
-    setWeekPlan((prev) => ({
-      ...prev,
-      [day]: {
-        ...(prev[day] ?? {}),
-        [time]: value,
-      },
-    }));
+  const updateSlot = (dayId: string, slot: MealSlot, value: string) => {
+    setSaved(false);
+    setPlan((prev) =>
+      prev.map((day) => (day.id === dayId ? { ...day, [slot]: value } : day)),
+    );
   };
 
-  const exportPlan = () => {
-    // For now just console log; could save via hostelService later
-    console.log("Week Plan:", weekPlan);
+  const save = async () => {
+    setIsSaving(true);
+    try {
+      await hostelService.saveMealPlan(plan);
+      setSaved(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <ScreenWrapper title={t("hostel.recordMeal") || "Meal Planner"}>
+    <ScreenWrapper title={t("hostel.mealPlan")}>
       <View style={styles.topRow}>
         <Button onPress={() => router.push("/(app)/hostel" as never)}>
           {t("common.back")}
         </Button>
       </View>
 
-      <Card mode="elevated" style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium">Weekly Meal Planner</Text>
-          {/* weekly planner - no per-student or per-room selection */}
+      {plan.map((day) => (
+        <Card key={day.id} mode="elevated" style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.dayTitle}>
+              {t(`hostel.day_${day.id}`)}
+            </Text>
+            {MEAL_SLOTS.map((slot) => (
+              <TextInput
+                key={slot}
+                label={t(`hostel.meal_${slot}`)}
+                value={day[slot]}
+                onChangeText={(value) => updateSlot(day.id, slot, value)}
+                mode="outlined"
+                style={styles.input}
+              />
+            ))}
+          </Card.Content>
+        </Card>
+      ))}
 
-          {DAYS.map((day) => (
-            <View key={day} style={styles.daySection}>
-              <Text variant="titleSmall" style={styles.dayTitle}>
-                {day}
-              </Text>
-              {TIMES.map((time) => (
-                <TextInput
-                  key={time}
-                  label={`${time}`}
-                  value={weekPlan[day]?.[time] ?? ""}
-                  onChangeText={(v) => updateCell(day, time, v)}
-                  style={styles.input}
-                />
-              ))}
-            </View>
-          ))}
-
-          <Button mode="contained" onPress={exportPlan} style={styles.button}>
-            {t("common.save")}
-          </Button>
-        </Card.Content>
-      </Card>
+      <Button
+        mode="contained"
+        onPress={save}
+        loading={isSaving}
+        style={styles.button}
+      >
+        {saved ? t("hostel.mealPlanSaved") : t("common.save")}
+      </Button>
     </ScreenWrapper>
   );
 }
@@ -103,8 +96,7 @@ export default function HostelMealsScreen() {
 const styles = StyleSheet.create({
   topRow: { flexDirection: "row", justifyContent: "flex-start" },
   card: { marginBottom: 12 },
-  daySection: { marginTop: 12 },
-  dayTitle: { fontWeight: "700", marginBottom: 8 },
+  dayTitle: { marginBottom: 8, fontWeight: "700" },
   input: { marginBottom: 8 },
   button: { marginTop: 12 },
 });
