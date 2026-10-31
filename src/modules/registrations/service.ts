@@ -47,6 +47,7 @@ export function buildRegistrationFromDb(record: any): Registration {
     programType: String(
       record.programType ?? record.program_type ?? "hifz_ul_quran",
     ) as ProgramType,
+    classId: String(record.classId ?? record.class_id ?? ""),
     photoUri: record.photoUri ?? record.photo_uri ?? undefined,
     status: String(record.status ?? "pending") as Registration["status"],
     createdAt: String(
@@ -88,7 +89,9 @@ function buildStudentFromRegistration(
     contactNumber: reg.guardianMobile,
     admissionDate: today(),
     programType: reg.programType,
-    classId: classForProgram(classes, reg.programType),
+    // Prefer the class the applicant chose; fall back to the program's first
+    // class for older registrations that predate class selection.
+    classId: reg.classId || classForProgram(classes, reg.programType),
     hostelStatus: reg.hostelStatus ?? false,
     photoUri: reg.photoUri,
     email: reg.guardianEmail,
@@ -194,6 +197,7 @@ class MockRegistrationService implements RegistrationService {
       address: data.address,
       city: data.city,
       programType: data.programType,
+      classId: data.classId,
       photoUri: data.photoUri,
       status: "pending",
       createdAt: now,

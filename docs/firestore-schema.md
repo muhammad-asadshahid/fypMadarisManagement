@@ -75,9 +75,10 @@ Holds every login account. Role controls the navigation the account can access.
 | id | string | |
 | name, contactNumber | string | |
 | email, password | string | login credentials (password = 4-digit PIN) |
-| subjects | string[] | |
 | salary | number | |
 | classIds | string[] (FK → classes) — drives workload view | |
+| qualification, experience | string? | free-text background |
+| programType | ProgramType? | program the assigned classes belong to |
 
 Each teacher also has a matching `users` document (`usr-<teacherId>`, role `teacher`,
 `teacherId`) created on add/update and removed on delete — this is what powers teacher login.

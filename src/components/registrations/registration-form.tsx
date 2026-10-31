@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
+import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View } from 'react-native';
@@ -10,8 +11,10 @@ import {
   registrationSchema,
   type RegistrationSchemaType,
 } from '@/modules/registrations/schema';
+import type { Class } from '@/types';
 
 interface RegistrationFormProps {
+  classes: Class[];
   onSubmit: (data: RegistrationSchemaType) => Promise<void>;
   isSubmitting?: boolean;
 }
@@ -28,11 +31,13 @@ const defaultValues: RegistrationSchemaType = {
   address: '',
   city: '',
   programType: 'hifz_ul_quran',
+  classId: '',
   photoUri: undefined,
   hostelStatus: false,
 };
 
 export function RegistrationForm({
+  classes,
   onSubmit,
   isSubmitting = false,
 }: RegistrationFormProps) {
@@ -50,7 +55,20 @@ export function RegistrationForm({
     defaultValues,
   });
 
+  const selectedProgram = watch('programType');
+  const selectedClassId = watch('classId');
   const photoUri = watch('photoUri');
+
+  const filteredClasses = useMemo(
+    () => classes.filter((c) => c.programType === selectedProgram),
+    [classes, selectedProgram],
+  );
+
+  useEffect(() => {
+    if (selectedClassId && !filteredClasses.some((c) => c.id === selectedClassId)) {
+      setValue('classId', '');
+    }
+  }, [filteredClasses, selectedClassId, setValue]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -302,6 +320,38 @@ export function RegistrationForm({
           />
         ))}
       </View>
+
+      <Text variant="labelLarge" style={styles.sectionLabel}>
+        {t('registration.class')}
+      </Text>
+      <View style={styles.chipRow}>
+        {filteredClasses.length === 0 ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+            {t('validation.classRequired')}
+          </Text>
+        ) : (
+          filteredClasses.map((cls) => (
+            <Controller
+              key={cls.id}
+              control={control}
+              name="classId"
+              render={({ field: { onChange, value } }) => (
+                <Button
+                  mode={value === cls.id ? 'contained' : 'outlined'}
+                  compact
+                  onPress={() => onChange(cls.id)}
+                  style={styles.programChip}
+                >
+                  {cls.name}
+                </Button>
+              )}
+            />
+          ))
+        )}
+      </View>
+      <HelperText type="error" visible={!!errors.classId}>
+        {translateError(errors.classId?.message)}
+      </HelperText>
 
       <Controller
         control={control}

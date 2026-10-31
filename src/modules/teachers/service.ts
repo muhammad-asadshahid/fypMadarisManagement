@@ -63,8 +63,7 @@ class FirestoreTeacherService implements TeacherService {
     return all.filter(
       (t) =>
         t.name.toLowerCase().includes(q) ||
-        t.contactNumber.toLowerCase().includes(q) ||
-        t.subjects.some((subject) => subject.toLowerCase().includes(q)),
+        t.contactNumber.toLowerCase().includes(q),
     );
   }
 
@@ -76,8 +75,10 @@ class FirestoreTeacherService implements TeacherService {
       password: data.password,
       contactNumber: data.contactNumber ?? "",
       salary: data.salary ?? 0,
-      subjects: data.subjects ?? [],
       classIds: data.classIds ?? [],
+      qualification: data.qualification,
+      experience: data.experience,
+      programType: data.programType,
     };
     await setDoc(doc(db!, "teachers", teacher.id), teacher);
     await this.syncUser(teacher);
@@ -94,8 +95,10 @@ class FirestoreTeacherService implements TeacherService {
       ...data,
       contactNumber: data.contactNumber ?? existing.contactNumber,
       salary: data.salary ?? existing.salary,
-      subjects: data.subjects ?? existing.subjects,
       classIds: data.classIds ?? existing.classIds,
+      qualification: data.qualification ?? existing.qualification,
+      experience: data.experience ?? existing.experience,
+      programType: data.programType ?? existing.programType,
       id,
     };
     await updateDoc(ref, { ...updated });
@@ -125,7 +128,6 @@ class MockTeacherService implements TeacherService {
       (t) =>
         t.name.toLowerCase().includes(q) ||
         t.contactNumber.toLowerCase().includes(q) ||
-        t.subjects.some((subject) => subject.toLowerCase().includes(q)) ||
         (t.classIds ?? []).some((classId) => classId.toLowerCase().includes(q)),
     );
   }
@@ -138,8 +140,10 @@ class MockTeacherService implements TeacherService {
       password: data.password,
       contactNumber: data.contactNumber ?? "",
       salary: data.salary ?? 0,
-      subjects: data.subjects ?? [],
       classIds: data.classIds ?? [],
+      qualification: data.qualification,
+      experience: data.experience,
+      programType: data.programType,
     };
     teachersDb = [teacher, ...teachersDb];
     return teacher;
@@ -153,8 +157,10 @@ class MockTeacherService implements TeacherService {
       ...data,
       contactNumber: data.contactNumber ?? teachersDb[idx].contactNumber,
       salary: data.salary ?? teachersDb[idx].salary,
-      subjects: data.subjects ?? teachersDb[idx].subjects,
       classIds: data.classIds ?? teachersDb[idx].classIds,
+      qualification: data.qualification ?? teachersDb[idx].qualification,
+      experience: data.experience ?? teachersDb[idx].experience,
+      programType: data.programType ?? teachersDb[idx].programType,
     };
     return teachersDb[idx];
   }

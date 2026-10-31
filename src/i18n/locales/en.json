@@ -63,6 +63,7 @@
     "totalStudents": "Total Students",
     "todayAttendance": "Today's Attendance",
     "pendingFees": "Pending Fees",
+    "pendingSalaries": "Pending Salaries",
     "hostelResidents": "Hostel Residents"
   },
   "programs": {
@@ -114,6 +115,7 @@
     "address": "Address",
     "city": "City",
     "programType": "Enrollment Program",
+    "class": "Class",
     "uploadPicture": "Upload Picture",
     "submit": "Submit Registration",
     "submitted": "Registration submitted! You can log in after admin approval.",
@@ -202,7 +204,9 @@
     "pin": "PIN (4 digits)",
     "contactNumber": "Contact Number",
     "salary": "Salary",
-    "subjects": "Subjects",
+    "qualification": "Qualification",
+    "experience": "Experience",
+    "programType": "Program",
     "assignedClasses": "Assigned Classes",
     "noClasses": "No classes available",
     "deleteTeacher": "Delete Teacher",

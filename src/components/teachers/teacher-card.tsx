@@ -15,7 +15,6 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
         {teacher.email ? (
           <Text variant="bodySmall">{teacher.email}</Text>
         ) : null}
-        <Text variant="bodySmall">{teacher.subjects?.join(", ")}</Text>
         <Text variant="bodySmall">{teacher.contactNumber}</Text>
       </Card.Content>
     </Card>

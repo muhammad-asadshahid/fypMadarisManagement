@@ -95,8 +95,12 @@ export default function TeacherDetailScreen() {
             {t("teachers.salary")}: {teacher.salary}
           </Text>
           <Text variant="bodySmall">
-            {t("teachers.subjects")}:{" "}
-            {teacher.subjects?.join(", ") || t("common.noData")}
+            {t("teachers.qualification")}:{" "}
+            {teacher.qualification || t("common.noData")}
+          </Text>
+          <Text variant="bodySmall">
+            {t("teachers.experience")}:{" "}
+            {teacher.experience || t("common.noData")}
           </Text>
           <Text variant="bodySmall">
             {t("teachers.assignedClasses")}:{" "}

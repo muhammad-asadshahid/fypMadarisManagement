@@ -6,7 +6,9 @@ import { ActivityIndicator, Card, Text } from 'react-native-paper';
 
 import { ScreenWrapper } from '@/components/common/screen-wrapper';
 import { StatCard } from '@/components/common/stat-card';
+import { currentMonthKey } from '@/lib/months';
 import { attendanceService, todayStr } from '@/modules/attendance/service';
+import { financialService } from '@/modules/financial/service';
 import { studentService } from '@/modules/students/service';
 import { teacherService } from '@/modules/teachers/service';
 import { useAuthStore } from '@/store/authStore';
@@ -15,7 +17,8 @@ export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
 
   if (user?.role === 'teacher') return <TeacherDashboard />;
-  return <GenericDashboard />;
+  if (user?.role === 'admin') return <AdminDashboard />;
+  return <ParentDashboard />;
 }
 
 function TeacherDashboard() {
@@ -107,7 +110,109 @@ function TeacherDashboard() {
   );
 }
 
-function GenericDashboard() {
+function AdminDashboard() {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    students: 0,
+    present: 0,
+    absent: 0,
+    leave: 0,
+    pendingFees: 0,
+    pendingSalaries: 0,
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const month = currentMonthKey();
+      const [students, teachers, todayRecords, feePayments, salaryPayments] =
+        await Promise.all([
+          studentService.getAll(),
+          teacherService.getAll(),
+          attendanceService.getByDate(todayStr()),
+          financialService.getFeePayments(month),
+          financialService.getSalaryPayments(),
+        ]);
+
+      const paidStudentIds = new Set(
+        feePayments.filter((p) => p.paid).map((p) => p.studentId),
+      );
+      const paidTeacherIds = new Set(
+        salaryPayments
+          .filter((p) => p.month === month)
+          .map((p) => p.teacherId),
+      );
+
+      setStats({
+        students: students.length,
+        present: todayRecords.filter((r) => r.status === 'present').length,
+        absent: todayRecords.filter((r) => r.status === 'absent').length,
+        leave: todayRecords.filter((r) => r.status === 'leave').length,
+        pendingFees: students.filter((s) => !paidStudentIds.has(s.id)).length,
+        pendingSalaries: teachers.filter((tc) => !paidTeacherIds.has(tc.id))
+          .length,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  return (
+    <ScreenWrapper title={t('dashboard.title')}>
+      <Card mode="elevated" style={styles.welcomeCard}>
+        <Card.Content>
+          <Text variant="titleLarge">
+            {t('dashboard.welcome', { name: user?.fullName })}
+          </Text>
+          <Text variant="bodyMedium" style={styles.role}>
+            {t('dashboard.role', { role: t(`roles.${user?.role}`) })}
+          </Text>
+        </Card.Content>
+      </Card>
+
+      {loading ? (
+        <ActivityIndicator style={styles.loader} />
+      ) : (
+        <>
+          <View style={styles.statsRow}>
+            <StatCard
+              label={t('dashboard.totalStudents')}
+              value={stats.students}
+            />
+            <StatCard
+              label={t('dashboard.pendingFees')}
+              value={stats.pendingFees}
+            />
+            <StatCard
+              label={t('dashboard.pendingSalaries')}
+              value={stats.pendingSalaries}
+            />
+          </View>
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t('dashboard.todayAttendance')}
+          </Text>
+          <View style={styles.statsRow}>
+            <StatCard label={t('attendance.present')} value={stats.present} />
+            <StatCard label={t('attendance.absent')} value={stats.absent} />
+            <StatCard label={t('attendance.leave')} value={stats.leave} />
+          </View>
+        </>
+      )}
+    </ScreenWrapper>
+  );
+}
+
+function ParentDashboard() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
@@ -123,15 +228,6 @@ function GenericDashboard() {
           </Text>
         </Card.Content>
       </Card>
-
-      <View style={styles.statsRow}>
-        <StatCard label={t('dashboard.totalStudents')} value={3} />
-        <StatCard label={t('dashboard.todayAttendance')} value="—" />
-      </View>
-      <View style={styles.statsRow}>
-        <StatCard label={t('dashboard.pendingFees')} value={1} />
-        <StatCard label={t('dashboard.hostelResidents')} value={2} />
-      </View>
     </ScreenWrapper>
   );
 }

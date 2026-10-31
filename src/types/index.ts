@@ -76,20 +76,25 @@ export interface Teacher {
   name: string;
   email?: string;
   password?: string;
-  subjects: string[];
   contactNumber: string;
   salary: number;
   classIds?: string[];
+  qualification?: string;
+  experience?: string;
+  /** Program the teacher's assigned classes belong to. */
+  programType?: ProgramType;
 }
 
 export interface TeacherFormData {
   name: string;
   email?: string;
   password?: string;
-  subjects?: string[];
   classIds?: string[];
   contactNumber?: string;
   salary?: number;
+  qualification?: string;
+  experience?: string;
+  programType?: ProgramType;
 }
 
 export interface Room {
@@ -203,6 +208,7 @@ export interface Registration {
   address: string;
   city: string;
   programType: ProgramType;
+  classId: string;
   photoUri?: string;
   hostelStatus?: boolean;
   status: RegistrationStatus;
@@ -222,6 +228,7 @@ export interface RegistrationFormData {
   address: string;
   city: string;
   programType: ProgramType;
+  classId: string;
   photoUri?: string;
   hostelStatus?: boolean;
 }

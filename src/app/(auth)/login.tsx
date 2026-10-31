@@ -180,41 +180,6 @@ export default function LoginScreen() {
               >
                 {t("auth.parentDemo")}
               </Text>
-              <View style={styles.demoButtons}>
-                <Button
-                  mode="contained"
-                  onPress={() =>
-                    onSubmit({
-                      email: "admin@mms.com",
-                      password: "admin123",
-                    } as any)
-                  }
-                >
-                  {t("roles.admin")}
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={() =>
-                    onSubmit({
-                      email: "teacherone@mail.com",
-                      password: "1234",
-                    } as any)
-                  }
-                >
-                  {t("roles.teacher")}
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={() =>
-                    onSubmit({
-                      email: "studentone@mail.com",
-                      password: "1234",
-                    } as any)
-                  }
-                >
-                  {t("roles.parent")}
-                </Button>
-              </View>
             </Card.Content>
           </Card>
         </ScrollView>
@@ -266,11 +231,5 @@ const styles = StyleSheet.create({
   demoTitle: {
     marginBottom: 8,
     fontWeight: "600",
-  },
-  demoButtons: {
-    marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
   },
 });

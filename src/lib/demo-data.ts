@@ -8,15 +8,14 @@ import type { Class, ProgramType, Student, Teacher, User } from "@/types";
 interface ProgramSeed {
   programType: ProgramType;
   label: string;
-  subject: string;
 }
 
 const PROGRAMS: ProgramSeed[] = [
-  { programType: "noorani_qaida", label: "Noorani Qaida", subject: "Noorani Qaida" },
-  { programType: "nazra_quran", label: "Nazra Quran", subject: "Nazra" },
-  { programType: "hifz_ul_quran", label: "Hifz-ul-Quran", subject: "Hifz" },
-  { programType: "dars_e_nizami", label: "Dars-e-Nizami", subject: "Dars-e-Nizami" },
-  { programType: "asri_taleem", label: "Asri Taleem", subject: "Asri Taleem" },
+  { programType: "noorani_qaida", label: "Noorani Qaida" },
+  { programType: "nazra_quran", label: "Nazra Quran" },
+  { programType: "hifz_ul_quran", label: "Hifz-ul-Quran" },
+  { programType: "dars_e_nizami", label: "Dars-e-Nizami" },
+  { programType: "asri_taleem", label: "Asri Taleem" },
 ];
 
 const ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
@@ -95,8 +94,10 @@ function buildTeachers(): Teacher[] {
       password: "1234",
       contactNumber: `0310${String(1000000 + index).slice(-7)}`,
       salary: 30000,
-      subjects: [PROGRAMS[Math.floor(index / 2)].subject],
       classIds: [cls.id],
+      programType: cls.programType,
+      qualification: "M.A.",
+      experience: "5 years",
     };
   });
 }

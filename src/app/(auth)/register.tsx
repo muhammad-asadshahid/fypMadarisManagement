@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Snackbar, Text, useTheme } from 'react-native-paper';
@@ -8,12 +8,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RegistrationForm } from '@/components/registrations/registration-form';
 import type { RegistrationSchemaType } from '@/modules/registrations/schema';
 import { registrationService } from '@/modules/registrations/service';
+import { studentService } from '@/modules/students/service';
+import type { Class } from '@/types';
 
 export default function RegisterScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
+  const [classes, setClasses] = useState<Class[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<string | null>(null);
+
+  useEffect(() => {
+    studentService
+      .getClasses()
+      .then(setClasses)
+      .catch(() => setClasses([]));
+  }, []);
 
   const handleSubmit = async (data: RegistrationSchemaType) => {
     setIsSubmitting(true);
@@ -62,6 +72,7 @@ export default function RegisterScreen() {
           <Card style={styles.card} mode="elevated">
             <Card.Content style={styles.cardContent}>
               <RegistrationForm
+                classes={classes}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
               />

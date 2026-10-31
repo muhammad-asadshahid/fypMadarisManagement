@@ -19,6 +19,7 @@ export const registrationSchema = z
       'dars_e_nizami',
       'asri_taleem',
     ]),
+    classId: z.string().min(1, 'validation.classRequired'),
     photoUri: z.string().optional(),
     hostelStatus: z.boolean().optional(),
   })
