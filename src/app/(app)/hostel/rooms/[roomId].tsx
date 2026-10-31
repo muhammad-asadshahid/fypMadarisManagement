@@ -1,14 +1,21 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
   Card,
+  Dialog,
   Divider,
   IconButton,
   List,
+  Portal,
   Snackbar,
   Text,
   TextInput,
@@ -23,6 +30,7 @@ import type { HostelAllocation, Room, Student } from "@/types";
 export default function HostelRoomDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
 
   const [room, setRoom] = useState<Room | null>(null);
@@ -32,6 +40,11 @@ export default function HostelRoomDetailScreen() {
   const [capacity, setCapacity] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -60,6 +73,10 @@ export default function HostelRoomDetailScreen() {
       load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (room) navigation.setOptions({ title: room.name });
+  }, [navigation, room]);
 
   const occupants = useMemo(
     () =>
@@ -96,19 +113,19 @@ export default function HostelRoomDetailScreen() {
     }
   };
 
-  const confirmRemove = (allocationId: string, studentName: string) => {
-    Alert.alert(t("hostel.remove"), `${studentName} — ${t("hostel.removeConfirm")}`, [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("hostel.remove"),
-        style: "destructive",
-        onPress: async () => {
-          await hostelService.removeAllocation(allocationId);
-          await load();
-          setSnackbar(t("hostel.removed"));
-        },
-      },
-    ]);
+  const removeOccupant = async () => {
+    if (!pendingRemove) return;
+    setRemoving(true);
+    try {
+      await hostelService.removeAllocation(pendingRemove.id);
+      setPendingRemove(null);
+      await load();
+      setSnackbar(t("hostel.removed"));
+    } catch {
+      setSnackbar(t("common.error"));
+    } finally {
+      setRemoving(false);
+    }
   };
 
   if (loading) {
@@ -132,7 +149,7 @@ export default function HostelRoomDetailScreen() {
 
   return (
     <ScreenWrapper
-      title={room.name}
+      title={t("hostel.editRoom")}
       action={
         <Button onPress={() => router.push("/(app)/hostel/rooms" as never)}>
           {t("common.back")}
@@ -141,7 +158,6 @@ export default function HostelRoomDetailScreen() {
     >
       <Card mode="elevated" style={styles.card}>
         <Card.Content style={styles.cardContent}>
-          <Text variant="titleMedium">{t("hostel.editRoom")}</Text>
           <TextInput
             label={t("hostel.roomName")}
             value={name}
@@ -186,10 +202,10 @@ export default function HostelRoomDetailScreen() {
                 <IconButton
                   icon="account-remove"
                   onPress={() =>
-                    confirmRemove(
-                      allocation.id,
-                      student?.name ?? allocation.studentId,
-                    )
+                    setPendingRemove({
+                      id: allocation.id,
+                      name: student?.name ?? allocation.studentId,
+                    })
                   }
                   accessibilityLabel={t("hostel.remove")}
                 />
@@ -198,6 +214,32 @@ export default function HostelRoomDetailScreen() {
           </View>
         ))
       )}
+
+      <Portal>
+        <Dialog
+          visible={!!pendingRemove}
+          onDismiss={() => setPendingRemove(null)}
+        >
+          <Dialog.Title>{t("hostel.remove")}</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              {`${pendingRemove?.name ?? ""} — ${t("hostel.removeConfirm")}`}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setPendingRemove(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onPress={removeOccupant}
+              loading={removing}
+              textColor="#B00020"
+            >
+              {t("hostel.remove")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       <Snackbar
         visible={!!snackbar}

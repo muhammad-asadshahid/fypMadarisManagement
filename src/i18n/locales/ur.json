@@ -378,6 +378,7 @@
     "attendanceTab": "حاضری",
     "progressTab": "پیش رفت",
     "feesTab": "فیس",
+    "mealsTab": "کھانا",
     "attendanceSummary": "حاضری کا خلاصہ",
     "attendanceRate": "حاضری فیصد",
     "noAttendance": "حاضری کا کوئی ریکارڈ نہیں ملا",
@@ -388,6 +389,7 @@
     "asriProgress": "مضامین کے نمبر",
     "noProgressForProgram": "اس پروگرام کے لیے پیش رفت دستیاب نہیں۔",
     "noFees": "فیس کا کوئی ریکارڈ نہیں ملا",
+    "noMeals": "ابھی تک کھانے کا کوئی شیڈول ترتیب نہیں دیا گیا۔",
     "feeHistory": "فیس کی تاریخ",
     "currentMonth": "موجودہ مہینہ",
     "months": "ریکارڈ شدہ مہینے"

@@ -9,13 +9,10 @@ import {
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import { EMPTY_MEAL_PLAN } from "@/constants/hostel";
-import { studentService } from "@/modules/students/service";
 import type {
     HostelAllocation,
     MealPlanDay,
     Room,
-    Student,
-    StudentFormData,
     VisitorRecord,
 } from "@/types";
 
@@ -66,22 +63,6 @@ export interface HostelService {
   saveMealPlan(plan: MealPlanDay[]): Promise<void>;
   recordVisitor(visitor: Omit<VisitorRecord, "id">): Promise<VisitorRecord>;
   getVisitors(): Promise<VisitorRecord[]>;
-}
-
-/** Student payload used when toggling a student's hostel status. */
-function hostelUpdate(student: Student, hostelStatus: boolean): StudentFormData {
-  return {
-    name: student.name,
-    fatherName: student.fatherName,
-    dateOfBirth: student.dateOfBirth,
-    address: student.address,
-    contactNumber: student.contactNumber,
-    admissionDate: student.admissionDate,
-    programType: student.programType,
-    classId: student.classId,
-    hostelStatus,
-    photoUri: student.photoUri,
-  };
 }
 
 class FirestoreHostelService implements HostelService {
@@ -148,30 +129,11 @@ class FirestoreHostelService implements HostelService {
     };
     await setDoc(doc(db!, "hostelAllocations", newAllocation.id), newAllocation);
 
-    const student = await studentService.getById(allocation.studentId);
-    if (student) {
-      await studentService.update(
-        allocation.studentId,
-        hostelUpdate(student, true),
-      );
-    }
-
     return newAllocation;
   }
 
   async removeAllocation(allocationId: string): Promise<void> {
-    const ref = doc(db!, "hostelAllocations", allocationId);
-    const snap = await getDoc(ref);
-    const studentId = snap.exists()
-      ? (snap.data() as HostelAllocation).studentId
-      : null;
-    await deleteDoc(ref);
-    if (studentId) {
-      const student = await studentService.getById(studentId);
-      if (student) {
-        await studentService.update(studentId, hostelUpdate(student, false));
-      }
-    }
+    await deleteDoc(doc(db!, "hostelAllocations", allocationId));
   }
 
   async getAllocations(): Promise<HostelAllocation[]> {
@@ -264,29 +226,11 @@ class MockHostelService implements HostelService {
     };
     allocationsDb = [newAllocation, ...allocationsDb];
 
-    const student = await studentService.getById(allocation.studentId);
-    if (student) {
-      await studentService.update(
-        allocation.studentId,
-        hostelUpdate(student, true),
-      );
-    }
-
     return newAllocation;
   }
 
   async removeAllocation(allocationId: string): Promise<void> {
-    const allocation = allocationsDb.find((a) => a.id === allocationId);
     allocationsDb = allocationsDb.filter((a) => a.id !== allocationId);
-    if (allocation) {
-      const student = await studentService.getById(allocation.studentId);
-      if (student) {
-        await studentService.update(
-          allocation.studentId,
-          hostelUpdate(student, false),
-        );
-      }
-    }
   }
 
   async getAllocations(): Promise<HostelAllocation[]> {

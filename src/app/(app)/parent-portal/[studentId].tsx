@@ -12,12 +12,13 @@ import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { AttendanceSection } from "@/components/parent/attendance-section";
 import { ChildDetailCard } from "@/components/parent/child-detail-card";
 import { FeeSection } from "@/components/parent/fee-section";
+import { MealPlanSection } from "@/components/parent/meal-plan-section";
 import { ProgressSection } from "@/components/parent/progress-section";
 import { studentService } from "@/modules/students/service";
 import { useAuthStore } from "@/store/authStore";
 import type { Student } from "@/types";
 
-type Tab = "attendance" | "progress" | "fees";
+type Tab = "attendance" | "progress" | "fees" | "meals";
 
 export default function ChildDetailScreen() {
   const { t } = useTranslation();
@@ -86,6 +87,9 @@ export default function ChildDetailScreen() {
           { value: "attendance", label: t("parent.attendanceTab") },
           { value: "progress", label: t("parent.progressTab") },
           { value: "fees", label: t("parent.feesTab") },
+          ...(student.hostelStatus
+            ? [{ value: "meals", label: t("parent.mealsTab") }]
+            : []),
         ]}
       />
 
@@ -94,6 +98,7 @@ export default function ChildDetailScreen() {
       ) : null}
       {tab === "progress" ? <ProgressSection student={student} /> : null}
       {tab === "fees" ? <FeeSection studentId={student.id} /> : null}
+      {tab === "meals" && student.hostelStatus ? <MealPlanSection /> : null}
     </ScreenWrapper>
   );
 }

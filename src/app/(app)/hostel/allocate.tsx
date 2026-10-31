@@ -59,9 +59,9 @@ export default function HostelAllocateScreen() {
   const occupiedFor = (roomId: string) =>
     allocations.filter((allocation) => allocation.roomId === roomId).length;
 
-  // A student is assignable only when they are not already living in a room —
-  // checking the allocations themselves (not just `hostelStatus`) prevents the
-  // same student being placed twice.
+  // A student is assignable only when they are a hostelite and not already
+  // living in a room — checking the allocations themselves (not just
+  // `hostelStatus`) prevents the same student being placed twice.
   const allocatedStudentIds = useMemo(
     () => new Set(allocations.map((allocation) => allocation.studentId)),
     [allocations],
@@ -71,7 +71,7 @@ export default function HostelAllocateScreen() {
     () =>
       allStudents.filter(
         (student) =>
-          !student.hostelStatus && !allocatedStudentIds.has(student.id),
+          student.hostelStatus && !allocatedStudentIds.has(student.id),
       ),
     [allStudents, allocatedStudentIds],
   );

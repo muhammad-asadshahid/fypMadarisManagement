@@ -379,6 +379,7 @@
     "attendanceTab": "Attendance",
     "progressTab": "Progress",
     "feesTab": "Fees",
+    "mealsTab": "Meals",
     "attendanceSummary": "Attendance Summary",
     "attendanceRate": "Attendance %",
     "noAttendance": "No attendance records found",
@@ -389,6 +390,7 @@
     "asriProgress": "Subject Marks",
     "noProgressForProgram": "Progress tracking is not available for this program.",
     "noFees": "No fee records found",
+    "noMeals": "No meal plan has been set yet.",
     "feeHistory": "Fee History",
     "currentMonth": "Current Month",
     "months": "Recorded Months"
