@@ -12,6 +12,8 @@ import type { LessonLog, LessonLogInput } from "@/types";
 
 export interface LessonLogService {
   getByClassAndDate(classId: string, date: string): Promise<LessonLog | null>;
+  /** Most recent lesson log for the class, whatever the date. */
+  getLatestByClass(classId: string): Promise<LessonLog | null>;
   save(input: LessonLogInput, teacherId: string): Promise<LessonLog>;
   getHistory(classId: string): Promise<LessonLog[]>;
 }
@@ -31,6 +33,11 @@ class FirestoreLessonLogService implements LessonLogService {
   ): Promise<LessonLog | null> {
     const snap = await getDoc(doc(db!, "lessonLogs", lessonId(classId, date)));
     return snap.exists() ? (snap.data() as LessonLog) : null;
+  }
+
+  async getLatestByClass(classId: string): Promise<LessonLog | null> {
+    const history = await this.getHistory(classId);
+    return history[0] ?? null;
   }
 
   async save(input: LessonLogInput, teacherId: string): Promise<LessonLog> {
@@ -68,6 +75,11 @@ class MockLessonLogService implements LessonLogService {
     return (
       this.records.find((r) => r.classId === classId && r.date === date) ?? null
     );
+  }
+
+  async getLatestByClass(classId: string): Promise<LessonLog | null> {
+    const history = await this.getHistory(classId);
+    return history[0] ?? null;
   }
 
   async save(input: LessonLogInput, teacherId: string): Promise<LessonLog> {

@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { name: 'attendance', labelKey: 'nav.attendance', icon: 'calendar-check', roles: ['admin', 'teacher'] },
   { name: 'hifz', labelKey: 'nav.hifz', icon: 'book-open-page-variant', roles: ['admin', 'teacher'], teacherPrograms: ['hifz_ul_quran'] },
   { name: 'nazra', labelKey: 'nav.nazra', icon: 'book-open-variant', roles: ['admin', 'teacher'], teacherPrograms: ['nazra_quran'] },
-  { name: 'dars-e-nizami', labelKey: 'nav.darsENizami', icon: 'bookshelf', roles: ['admin', 'teacher'] },
+  { name: 'dars-e-nizami', labelKey: 'nav.darsENizami', icon: 'bookshelf', roles: ['admin', 'teacher'], teacherPrograms: ['dars_e_nizami'] },
   { name: 'asri-taleem', labelKey: 'nav.asriTaleem', icon: 'school', roles: ['admin', 'teacher'], teacherPrograms: ['asri_taleem'] },
   { name: 'hostel', labelKey: 'nav.hostel', icon: 'home-group', roles: ['admin'] },
   { name: 'financial', labelKey: 'nav.financial', icon: 'cash-multiple', roles: ['admin'] },

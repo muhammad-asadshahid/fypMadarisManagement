@@ -14,6 +14,7 @@ import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { HifzProgressRow } from "@/components/hifz/hifz-progress-row";
 import { LessonLogForm } from "@/components/hifz/lesson-log-form";
 import { useAssignedClasses } from "@/hooks/use-assigned-classes";
+import { latestDate } from "@/lib/latest-by-student";
 import { todayStr } from "@/modules/attendance/service";
 import { hifzService } from "@/modules/hifz/service";
 import { lessonLogService } from "@/modules/lessons/service";
@@ -33,6 +34,7 @@ export default function HifzScreen() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [lesson, setLesson] = useState<LessonLog | null>(null);
   const [mistakes, setMistakes] = useState<Record<string, number>>({});
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingLesson, setSavingLesson] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
@@ -50,14 +52,15 @@ export default function HifzScreen() {
     if (!classId) {
       setLesson(null);
       setMistakes({});
+      setLastUpdated(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const [lessonLog, records] = await Promise.all([
-        lessonLogService.getByClassAndDate(classId, date),
-        hifzService.getByClassAndDate(classId, date),
+        lessonLogService.getLatestByClass(classId),
+        hifzService.getLatestByClass(classId),
       ]);
       setLesson(lessonLog);
       const map: Record<string, number> = {};
@@ -68,10 +71,13 @@ export default function HifzScreen() {
         map[record.studentId] = record.mistakeCount;
       });
       setMistakes(map);
+      setLastUpdated(
+        latestDate([...records.map((r) => r.date), lessonLog?.date]),
+      );
     } finally {
       setLoading(false);
     }
-  }, [classId, date, selectedClass]);
+  }, [classId, selectedClass]);
 
   useFocusEffect(
     useCallback(() => {
@@ -163,6 +169,12 @@ export default function HifzScreen() {
             {t("hifz.progress")}
           </Text>
 
+          {lastUpdated ? (
+            <Text variant="bodySmall" style={styles.lastUpdated}>
+              {t("hifz.lastUpdated", { date: lastUpdated })}
+            </Text>
+          ) : null}
+
           {selectedClass?.students.length === 0 ? (
             <EmptyState message={t("common.noData")} />
           ) : (
@@ -212,6 +224,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 8,
+  },
+  lastUpdated: {
+    opacity: 0.7,
+    marginBottom: 4,
   },
   readOnlyNote: {
     opacity: 0.7,

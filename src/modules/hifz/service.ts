@@ -8,12 +8,14 @@ import {
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
 import { gradeFromMistakes } from "@/lib/hifz-grade";
+import { latestPerStudent } from "@/lib/latest-by-student";
 import type { HifzGrade, HifzRecord, HifzUpdateInput } from "@/types";
 
 export interface HifzService {
   recordClass(entries: HifzUpdateInput[], teacherId: string): Promise<void>;
   getByStudent(studentId: string): Promise<HifzRecord[]>;
-  getByClassAndDate(classId: string, date: string): Promise<HifzRecord[]>;
+  /** Most recent record for each student in the class, whatever the date. */
+  getLatestByClass(classId: string): Promise<HifzRecord[]>;
   getRecent(date: string): Promise<HifzRecord[]>;
 }
 
@@ -65,17 +67,12 @@ class FirestoreHifzService implements HifzService {
     return records.sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
-  async getByClassAndDate(
-    classId: string,
-    date: string,
-  ): Promise<HifzRecord[]> {
-    const q = query(
-      this.col(),
-      where("classId", "==", classId),
-      where("date", "==", date),
-    );
+  async getLatestByClass(classId: string): Promise<HifzRecord[]> {
+    // Equality-only filter, latest-per-student resolved in memory — avoids
+    // needing a composite (classId, date) index in Firestore.
+    const q = query(this.col(), where("classId", "==", classId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as HifzRecord);
+    return latestPerStudent(snapshot.docs.map((d) => d.data() as HifzRecord));
   }
 
   async getRecent(date: string): Promise<HifzRecord[]> {
@@ -107,11 +104,8 @@ class MockHifzService implements HifzService {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
-  async getByClassAndDate(
-    classId: string,
-    date: string,
-  ): Promise<HifzRecord[]> {
-    return this.records.filter((r) => r.classId === classId && r.date === date);
+  async getLatestByClass(classId: string): Promise<HifzRecord[]> {
+    return latestPerStudent(this.records.filter((r) => r.classId === classId));
   }
 
   async getRecent(date: string): Promise<HifzRecord[]> {

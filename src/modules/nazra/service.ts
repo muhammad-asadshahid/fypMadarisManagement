@@ -7,12 +7,14 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, FIREBASE_CONFIGURED } from "@/lib/firebase";
+import { latestPerStudent } from "@/lib/latest-by-student";
 import type { NazraRecord, NazraUpdateInput } from "@/types";
 
 export interface NazraService {
   recordClass(entries: NazraUpdateInput[], teacherId: string): Promise<void>;
   getByStudent(studentId: string): Promise<NazraRecord[]>;
-  getByClassAndDate(classId: string, date: string): Promise<NazraRecord[]>;
+  /** Most recent record for each student in the class, whatever the date. */
+  getLatestByClass(classId: string): Promise<NazraRecord[]>;
   getRecent(date: string): Promise<NazraRecord[]>;
 }
 
@@ -56,17 +58,10 @@ class FirestoreNazraService implements NazraService {
     return records.sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
-  async getByClassAndDate(
-    classId: string,
-    date: string,
-  ): Promise<NazraRecord[]> {
-    const q = query(
-      this.col(),
-      where("classId", "==", classId),
-      where("date", "==", date),
-    );
+  async getLatestByClass(classId: string): Promise<NazraRecord[]> {
+    const q = query(this.col(), where("classId", "==", classId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as NazraRecord);
+    return latestPerStudent(snapshot.docs.map((d) => d.data() as NazraRecord));
   }
 
   async getRecent(date: string): Promise<NazraRecord[]> {
@@ -98,11 +93,8 @@ class MockNazraService implements NazraService {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
-  async getByClassAndDate(
-    classId: string,
-    date: string,
-  ): Promise<NazraRecord[]> {
-    return this.records.filter((r) => r.classId === classId && r.date === date);
+  async getLatestByClass(classId: string): Promise<NazraRecord[]> {
+    return latestPerStudent(this.records.filter((r) => r.classId === classId));
   }
 
   async getRecent(date: string): Promise<NazraRecord[]> {

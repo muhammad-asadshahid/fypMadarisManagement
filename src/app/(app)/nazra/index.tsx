@@ -13,6 +13,7 @@ import {
   type NazraProgressFields,
 } from "@/components/hifz/nazra-progress-row";
 import { useAssignedClasses } from "@/hooks/use-assigned-classes";
+import { latestDate } from "@/lib/latest-by-student";
 import { todayStr } from "@/modules/attendance/service";
 import { lessonLogService } from "@/modules/lessons/service";
 import { nazraService } from "@/modules/nazra/service";
@@ -38,6 +39,7 @@ export default function NazraScreen() {
   const [progress, setProgress] = useState<Record<string, NazraProgressFields>>(
     {},
   );
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingLesson, setSavingLesson] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
@@ -55,14 +57,15 @@ export default function NazraScreen() {
     if (!classId) {
       setLesson(null);
       setProgress({});
+      setLastUpdated(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const [lessonLog, records] = await Promise.all([
-        lessonLogService.getByClassAndDate(classId, date),
-        nazraService.getByClassAndDate(classId, date),
+        lessonLogService.getLatestByClass(classId),
+        nazraService.getLatestByClass(classId),
       ]);
       setLesson(lessonLog);
       const map: Record<string, NazraProgressFields> = {};
@@ -79,10 +82,13 @@ export default function NazraScreen() {
         };
       });
       setProgress(map);
+      setLastUpdated(
+        latestDate([...records.map((r) => r.date), lessonLog?.date]),
+      );
     } finally {
       setLoading(false);
     }
-  }, [classId, date, selectedClass]);
+  }, [classId, selectedClass]);
 
   useFocusEffect(
     useCallback(() => {
@@ -181,6 +187,12 @@ export default function NazraScreen() {
             {t("nazra.progress")}
           </Text>
 
+          {lastUpdated ? (
+            <Text variant="bodySmall" style={styles.lastUpdated}>
+              {t("nazra.lastUpdated", { date: lastUpdated })}
+            </Text>
+          ) : null}
+
           {selectedClass?.students.length === 0 ? (
             <EmptyState message={t("common.noData")} />
           ) : (
@@ -234,6 +246,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 8,
+  },
+  lastUpdated: {
+    opacity: 0.7,
+    marginBottom: 4,
   },
   readOnlyNote: {
     opacity: 0.7,

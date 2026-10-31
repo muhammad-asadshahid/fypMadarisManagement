@@ -340,6 +340,7 @@
     },
     "mistakes": "Mistakes",
     "progress": "Student Progress",
+    "lastUpdated": "Last updated: {{date}}",
     "saveProgress": "Save Progress",
     "notAssigned": "You are not assigned to any Hifz class.",
     "readOnly": "Admin view — read-only. Only the assigned teacher can edit Hifz progress."
@@ -351,6 +352,7 @@
     "pronunciationErrors": "Pronunciation errors",
     "remarks": "Teacher remarks",
     "progress": "Student Progress",
+    "lastUpdated": "Last updated: {{date}}",
     "saveProgress": "Save Progress",
     "notAssigned": "You are not assigned to any Nazra class.",
     "readOnly": "Admin view — read-only. Only the assigned teacher can edit Nazra progress."
