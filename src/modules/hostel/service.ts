@@ -14,6 +14,8 @@ import type {
     HostelAllocation,
     MealPlanDay,
     Room,
+    Student,
+    StudentFormData,
     VisitorRecord,
 } from "@/types";
 
@@ -48,16 +50,38 @@ let visitorsDb: VisitorRecord[] = [];
 
 export interface HostelService {
   getRooms(): Promise<Room[]>;
+  getRoom(id: string): Promise<Room | null>;
   createRoom(room: Omit<Room, "id" | "createdAt">): Promise<Room>;
+  updateRoom(
+    id: string,
+    data: { name: string; capacity: number },
+  ): Promise<Room>;
   allocateRoom(
     allocation: Omit<HostelAllocation, "id" | "assignedAt">,
   ): Promise<HostelAllocation>;
+  removeAllocation(allocationId: string): Promise<void>;
   getAllocations(): Promise<HostelAllocation[]>;
   getOccupancy(roomId: string): Promise<number>;
   getMealPlan(): Promise<MealPlanDay[]>;
   saveMealPlan(plan: MealPlanDay[]): Promise<void>;
   recordVisitor(visitor: Omit<VisitorRecord, "id">): Promise<VisitorRecord>;
   getVisitors(): Promise<VisitorRecord[]>;
+}
+
+/** Student payload used when toggling a student's hostel status. */
+function hostelUpdate(student: Student, hostelStatus: boolean): StudentFormData {
+  return {
+    name: student.name,
+    fatherName: student.fatherName,
+    dateOfBirth: student.dateOfBirth,
+    address: student.address,
+    contactNumber: student.contactNumber,
+    admissionDate: student.admissionDate,
+    programType: student.programType,
+    classId: student.classId,
+    hostelStatus,
+    photoUri: student.photoUri,
+  };
 }
 
 class FirestoreHostelService implements HostelService {
@@ -70,6 +94,11 @@ class FirestoreHostelService implements HostelService {
     return snapshot.docs.map((d) => d.data() as Room);
   }
 
+  async getRoom(id: string): Promise<Room | null> {
+    const snap = await getDoc(doc(db!, "hostelRooms", id));
+    return snap.exists() ? (snap.data() as Room) : null;
+  }
+
   async createRoom(room: Omit<Room, "id" | "createdAt">): Promise<Room> {
     const newRoom: Room = {
       id: `room-${Date.now()}`,
@@ -80,9 +109,38 @@ class FirestoreHostelService implements HostelService {
     return newRoom;
   }
 
+  async updateRoom(
+    id: string,
+    data: { name: string; capacity: number },
+  ): Promise<Room> {
+    const ref = doc(db!, "hostelRooms", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("Room not found");
+    const updated: Room = { ...(snap.data() as Room), id, ...data };
+    await setDoc(ref, updated);
+    return updated;
+  }
+
   async allocateRoom(
     allocation: Omit<HostelAllocation, "id" | "assignedAt">,
   ): Promise<HostelAllocation> {
+    const [rooms, allAllocations] = await Promise.all([
+      this.getRooms(),
+      this.getAllocations(),
+    ]);
+    // One student can only ever hold a single room.
+    if (allAllocations.some((a) => a.studentId === allocation.studentId)) {
+      throw new Error("hostel.studentAlreadyAllocated");
+    }
+    // A room can never exceed its capacity.
+    const room = rooms.find((r) => r.id === allocation.roomId);
+    const occupied = allAllocations.filter(
+      (a) => a.roomId === allocation.roomId,
+    ).length;
+    if (room && occupied >= room.capacity) {
+      throw new Error("hostel.roomFull");
+    }
+
     const newAllocation: HostelAllocation = {
       id: `alloc-${Date.now()}`,
       assignedAt: new Date().toISOString(),
@@ -92,21 +150,28 @@ class FirestoreHostelService implements HostelService {
 
     const student = await studentService.getById(allocation.studentId);
     if (student) {
-      await studentService.update(allocation.studentId, {
-        name: student.name,
-        fatherName: student.fatherName,
-        dateOfBirth: student.dateOfBirth,
-        address: student.address,
-        contactNumber: student.contactNumber,
-        admissionDate: student.admissionDate,
-        programType: student.programType,
-        classId: student.classId,
-        hostelStatus: true,
-        photoUri: student.photoUri,
-      });
+      await studentService.update(
+        allocation.studentId,
+        hostelUpdate(student, true),
+      );
     }
 
     return newAllocation;
+  }
+
+  async removeAllocation(allocationId: string): Promise<void> {
+    const ref = doc(db!, "hostelAllocations", allocationId);
+    const snap = await getDoc(ref);
+    const studentId = snap.exists()
+      ? (snap.data() as HostelAllocation).studentId
+      : null;
+    await deleteDoc(ref);
+    if (studentId) {
+      const student = await studentService.getById(studentId);
+      if (student) {
+        await studentService.update(studentId, hostelUpdate(student, false));
+      }
+    }
   }
 
   async getAllocations(): Promise<HostelAllocation[]> {
@@ -151,6 +216,10 @@ class MockHostelService implements HostelService {
     return [...roomsDb];
   }
 
+  async getRoom(id: string): Promise<Room | null> {
+    return roomsDb.find((r) => r.id === id) ?? null;
+  }
+
   async createRoom(room: Omit<Room, "id" | "createdAt">): Promise<Room> {
     const newRoom: Room = {
       id: `room-${Date.now()}`,
@@ -161,9 +230,33 @@ class MockHostelService implements HostelService {
     return newRoom;
   }
 
+  async updateRoom(
+    id: string,
+    data: { name: string; capacity: number },
+  ): Promise<Room> {
+    const existing = roomsDb.find((r) => r.id === id);
+    if (!existing) throw new Error("Room not found");
+    const updated: Room = { ...existing, ...data };
+    roomsDb = roomsDb.map((r) => (r.id === id ? updated : r));
+    return updated;
+  }
+
   async allocateRoom(
     allocation: Omit<HostelAllocation, "id" | "assignedAt">,
   ): Promise<HostelAllocation> {
+    // One student can only ever hold a single room.
+    if (allocationsDb.some((a) => a.studentId === allocation.studentId)) {
+      throw new Error("hostel.studentAlreadyAllocated");
+    }
+    // A room can never exceed its capacity.
+    const room = roomsDb.find((r) => r.id === allocation.roomId);
+    const occupied = allocationsDb.filter(
+      (a) => a.roomId === allocation.roomId,
+    ).length;
+    if (room && occupied >= room.capacity) {
+      throw new Error("hostel.roomFull");
+    }
+
     const newAllocation: HostelAllocation = {
       id: `alloc-${Date.now()}`,
       assignedAt: new Date().toISOString(),
@@ -173,21 +266,27 @@ class MockHostelService implements HostelService {
 
     const student = await studentService.getById(allocation.studentId);
     if (student) {
-      await studentService.update(allocation.studentId, {
-        name: student.name,
-        fatherName: student.fatherName,
-        dateOfBirth: student.dateOfBirth,
-        address: student.address,
-        contactNumber: student.contactNumber,
-        admissionDate: student.admissionDate,
-        programType: student.programType,
-        classId: student.classId,
-        hostelStatus: true,
-        photoUri: student.photoUri,
-      });
+      await studentService.update(
+        allocation.studentId,
+        hostelUpdate(student, true),
+      );
     }
 
     return newAllocation;
+  }
+
+  async removeAllocation(allocationId: string): Promise<void> {
+    const allocation = allocationsDb.find((a) => a.id === allocationId);
+    allocationsDb = allocationsDb.filter((a) => a.id !== allocationId);
+    if (allocation) {
+      const student = await studentService.getById(allocation.studentId);
+      if (student) {
+        await studentService.update(
+          allocation.studentId,
+          hostelUpdate(student, false),
+        );
+      }
+    }
   }
 
   async getAllocations(): Promise<HostelAllocation[]> {

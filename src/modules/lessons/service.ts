@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   setDoc,
   where,
@@ -50,13 +49,12 @@ class FirestoreLessonLogService implements LessonLogService {
   }
 
   async getHistory(classId: string): Promise<LessonLog[]> {
-    const q = query(
-      this.col(),
-      where("classId", "==", classId),
-      orderBy("date", "desc"),
-    );
+    // Equality-only filter, sorted in memory — avoids needing a composite
+    // (classId, date) index in Firestore.
+    const q = query(this.col(), where("classId", "==", classId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as LessonLog);
+    const records = snapshot.docs.map((d) => d.data() as LessonLog);
+    return records.sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 }
 

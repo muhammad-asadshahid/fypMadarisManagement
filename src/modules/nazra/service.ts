@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   getDocs,
-  orderBy,
   query,
   where,
   writeBatch,
@@ -49,13 +48,12 @@ class FirestoreNazraService implements NazraService {
   }
 
   async getByStudent(studentId: string): Promise<NazraRecord[]> {
-    const q = query(
-      this.col(),
-      where("studentId", "==", studentId),
-      orderBy("date", "desc"),
-    );
+    // Equality-only filter, sorted in memory — avoids needing a composite
+    // (studentId, date) index in Firestore.
+    const q = query(this.col(), where("studentId", "==", studentId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as NazraRecord);
+    const records = snapshot.docs.map((d) => d.data() as NazraRecord);
+    return records.sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
   async getByClassAndDate(

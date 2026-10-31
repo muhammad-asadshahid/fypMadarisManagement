@@ -6,6 +6,7 @@ import { ActivityIndicator, Card, Text } from 'react-native-paper';
 
 import { ScreenWrapper } from '@/components/common/screen-wrapper';
 import { StatCard } from '@/components/common/stat-card';
+import { ChildrenList } from '@/components/parent/children-list';
 import { currentMonthKey } from '@/lib/months';
 import { attendanceService, todayStr } from '@/modules/attendance/service';
 import { financialService } from '@/modules/financial/service';
@@ -18,7 +19,31 @@ export default function DashboardScreen() {
 
   if (user?.role === 'teacher') return <TeacherDashboard />;
   if (user?.role === 'admin') return <AdminDashboard />;
-  return <ParentDashboard />;
+  if (user?.role === 'parent') return <ParentDashboard />;
+  return <GenericDashboard />;
+}
+
+function ParentDashboard() {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+
+  return (
+    <ChildrenList
+      title={t('dashboard.title')}
+      header={
+        <Card mode="elevated" style={styles.welcomeCard}>
+          <Card.Content>
+            <Text variant="titleLarge">
+              {t('dashboard.welcome', { name: user?.fullName })}
+            </Text>
+            <Text variant="bodyMedium" style={styles.role}>
+              {t('dashboard.role', { role: t('roles.parent') })}
+            </Text>
+          </Card.Content>
+        </Card>
+      }
+    />
+  );
 }
 
 function TeacherDashboard() {
@@ -212,7 +237,7 @@ function AdminDashboard() {
   );
 }
 
-function ParentDashboard() {
+function GenericDashboard() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 

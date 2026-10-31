@@ -1,8 +1,8 @@
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native";
-import { Button, Card, Text, TextInput } from "react-native-paper";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Button, Card, Chip, Text, TextInput } from "react-native-paper";
 
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { hostelService } from "@/modules/hostel/service";
@@ -17,17 +17,20 @@ export default function HostelRoomsScreen() {
   const [capacity, setCapacity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      const [roomList, allocationList] = await Promise.all([
-        hostelService.getRooms(),
-        hostelService.getAllocations(),
-      ]);
-      setRooms(roomList);
-      setAllocations(allocationList);
-    };
-    load();
+  const load = useCallback(async () => {
+    const [roomList, allocationList] = await Promise.all([
+      hostelService.getRooms(),
+      hostelService.getAllocations(),
+    ]);
+    setRooms(roomList);
+    setAllocations(allocationList);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const occupancyFor = (roomId: string) =>
     allocations.filter((allocation) => allocation.roomId === roomId).length;
@@ -36,13 +39,13 @@ export default function HostelRoomsScreen() {
     if (!name || !capacity) return;
     setIsSubmitting(true);
     try {
-      const room = await hostelService.createRoom({
+      await hostelService.createRoom({
         name,
         capacity: Number(capacity),
       });
-      setRooms((prev) => [room, ...prev]);
       setName("");
       setCapacity("");
+      await load();
     } finally {
       setIsSubmitting(false);
     }
@@ -84,19 +87,37 @@ export default function HostelRoomsScreen() {
         </Card.Content>
       </Card>
 
-      {rooms.map((room) => (
-        <Card key={room.id} mode="outlined" style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">{room.name}</Text>
-            <Text>
-              {t("hostel.capacity")} : {room.capacity}
-            </Text>
-            <Text>
-              {t("hostel.occupancy")} : {occupancyFor(room.id)} / {room.capacity}
-            </Text>
-          </Card.Content>
-        </Card>
-      ))}
+      {rooms.map((room) => {
+        const occupied = occupancyFor(room.id);
+        const left = Math.max(0, room.capacity - occupied);
+        const full = occupied >= room.capacity;
+        return (
+          <Pressable
+            key={room.id}
+            onPress={() =>
+              router.push(`/(app)/hostel/rooms/${room.id}` as never)
+            }
+          >
+            <Card mode="outlined" style={styles.card}>
+              <Card.Content>
+                <View style={styles.roomRow}>
+                  <View style={styles.roomInfo}>
+                    <Text variant="titleMedium">{room.name}</Text>
+                    <Text variant="bodySmall">
+                      {`${t("hostel.occupied")}: ${occupied} / ${room.capacity}`}
+                    </Text>
+                  </View>
+                  <Chip mode={full ? "flat" : "outlined"}>
+                    {full
+                      ? t("hostel.full")
+                      : `${t("hostel.occupancyLeft")}: ${left}`}
+                  </Chip>
+                </View>
+              </Card.Content>
+            </Card>
+          </Pressable>
+        );
+      })}
     </ScreenWrapper>
   );
 }
@@ -105,4 +126,11 @@ const styles = StyleSheet.create({
   card: { marginBottom: 12 },
   input: { marginTop: 12 },
   button: { marginTop: 12 },
+  roomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  roomInfo: { flex: 1, gap: 2 },
 });

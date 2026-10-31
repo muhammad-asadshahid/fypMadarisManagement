@@ -14,25 +14,33 @@ import {
 import { EmptyState } from "@/components/common/empty-state";
 import { ScreenWrapper } from "@/components/common/screen-wrapper";
 import { PROGRAM_LABEL_KEYS } from "@/constants/programs";
+import { hostelService } from "@/modules/hostel/service";
 import { studentService } from "@/modules/students/service";
-import type { Class, Student } from "@/types";
+import type { Class, HostelAllocation, Room, Student } from "@/types";
 
 export default function HostelScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [allocations, setAllocations] = useState<HostelAllocation[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentList, classList] = await Promise.all([
-        studentService.getAll(),
-        studentService.getClasses(),
-      ]);
+      const [studentList, classList, roomList, allocationList] =
+        await Promise.all([
+          studentService.getAll(),
+          studentService.getClasses(),
+          hostelService.getRooms(),
+          hostelService.getAllocations(),
+        ]);
       setStudents(studentList);
       setClasses(classList);
+      setRooms(roomList);
+      setAllocations(allocationList);
     } finally {
       setLoading(false);
     }
@@ -49,7 +57,12 @@ export default function HostelScreen() {
     [students],
   );
 
-  const totalHostel = hostelStudents.length;
+  const occupiedFor = (roomId: string) =>
+    allocations.filter((allocation) => allocation.roomId === roomId).length;
+
+  const totalCapacity = rooms.reduce((sum, room) => sum + room.capacity, 0);
+  const totalOccupied = allocations.length;
+  const totalLeft = Math.max(0, totalCapacity - totalOccupied);
 
   return (
     <ScreenWrapper
@@ -79,8 +92,13 @@ export default function HostelScreen() {
         <>
           <Card mode="elevated" style={styles.summaryCard}>
             <Card.Content>
-              <Text variant="headlineMedium">{totalHostel}</Text>
+              <Text variant="headlineMedium">
+                {`${totalOccupied} / ${totalCapacity}`}
+              </Text>
               <Text>{t("hostel.occupancy")}</Text>
+              <Text variant="bodyMedium" style={styles.summarySub}>
+                {`${t("hostel.occupancyLeft")}: ${totalLeft}`}
+              </Text>
             </Card.Content>
           </Card>
 
@@ -99,12 +117,46 @@ export default function HostelScreen() {
             </Button>
           </View>
 
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("hostel.rooms")}
+          </Text>
+          {rooms.length === 0 ? (
+            <EmptyState message={t("hostel.noRooms")} />
+          ) : (
+            rooms.map((room) => {
+              const occupied = occupiedFor(room.id);
+              const left = Math.max(0, room.capacity - occupied);
+              const full = occupied >= room.capacity;
+              return (
+                <List.Item
+                  key={room.id}
+                  title={room.name}
+                  description={`${t("hostel.occupied")}: ${occupied} / ${room.capacity}`}
+                  onPress={() =>
+                    router.push(`/(app)/hostel/rooms/${room.id}` as never)
+                  }
+                  right={() => (
+                    <Chip style={styles.chip} mode={full ? "flat" : "outlined"}>
+                      {full
+                        ? t("hostel.full")
+                        : `${t("hostel.occupancyLeft")}: ${left}`}
+                    </Chip>
+                  )}
+                />
+              );
+            })
+          )}
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("hostel.hostel")}
+          </Text>
           {hostelStudents.length === 0 ? (
             <EmptyState message={t("hostel.noAllocations")} />
           ) : (
             <FlatList
               data={hostelStudents}
               keyExtractor={(item) => item.id}
+              scrollEnabled={false}
               renderItem={({ item }) => {
                 const className =
                   classes.find((cls) => cls.id === item.classId)?.name ??
@@ -141,11 +193,19 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginBottom: 16,
   },
+  summarySub: {
+    marginTop: 4,
+  },
   actionRow: {
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
     marginTop: 16,
+  },
+  sectionTitle: {
+    marginTop: 24,
+    marginBottom: 4,
+    fontWeight: "600",
   },
   chip: {
     alignSelf: "center",
